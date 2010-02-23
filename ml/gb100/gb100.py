@@ -3,7 +3,7 @@
 import random, math, sys
 
 class Node(object):
-    def __init__(self, instances, nminobs):  # nminobs - minimum allowed sum of weights of instances in each node
+    def __init__(self, instances, nminobs):
         self.instances = instances                               # x=features, y=target, w=weight, a=aux data
         W = float(sum(w for (x, y, w, a) in instances))
         self.var, self.left, self.right = None, None, None       # split variable (None if leaf) and child nodes
@@ -83,7 +83,7 @@ class TreeBoost(object):
             subsample = [(x, -deriv(y, F[i]), random.randint(0, 1), i) for i, (x, y) in enumerate(instances)]
             tree = RegressionTree(subsample, nleaves=nleaves, nminobs=nminobs)
 
-            # optimize loss function separately in each region of the tree
+            # optimize loss function in each region of the tree (hence this is gradient *tree* boost)
             for leaf in tree.leaves:
                 idx = [a for (x, y, w, a) in leaf.instances]  # indices of instances which fell into this leaf
                 leaf.instances = None
@@ -110,12 +110,17 @@ class TreeBoost(object):
 #   * nminobs - minimum number of training instances that should be contained
 #       in each leaf. This allows to somewhat limit growth of trees.
 #       (= gbm's n.minobsinnode).
+#
+# Hard-coded parameters/choices:
 #   * bagging/subsampling is done by flipping a fair coin for each instance,
 #       and hence is almost equivalent to a 1/2 subsampling fraction in Friedman's
 #       pseudocode.
+#   * Loss function is square loss L(y, y') = 1/2 (y - y')^2
+#       May be changed by adjusting 'deriv' and 'gamma' functions.
+#
 
 def MSE(h, test_set):
-    """Returns mean squared error of hypothesis h on given test set."""
+    """Returns mean squared error of hypothesis h on a given test set."""
     return sum((y - h(x))**2 for (x, y) in test_set) / float(len(test_set))
 
 def CV(instances, k, model_builder):
