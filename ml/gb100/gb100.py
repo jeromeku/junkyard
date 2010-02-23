@@ -67,7 +67,7 @@ class RegressionTree(object):
         return node.value
 
 class TreeBoost(object):
-    """Stochastic gradient tree boosting.  This implementation is limited to regression with real-valued input."""
+    """Stochastic gradient tree boosting.  This implementation is limited to regression with real-valued inputs."""
 
     def __init__(self, instances, ntrees, nleaves, shrinkage=0.01, nminobs=10):
         # loss function specific components of gradient boosting.  These two are for L(y, f(x)) = 1/2 (y - f(x))^2
@@ -85,7 +85,7 @@ class TreeBoost(object):
 
             # optimize loss function in each region of the tree (hence this is gradient *tree* boost)
             for leaf in tree.leaves:
-                idx = [a for (x, y, w, a) in leaf.instances]  # indices of instances which fell into this leaf
+                idx = [a for (x, y, w, a) in leaf.instances]  # indices of instances which felt into this leaf
                 leaf.instances = None
                 leaf.value = shrinkage * gamma([instances[i][1] for i in idx], [F[i] for i in idx])
                 for i in idx:
@@ -102,7 +102,7 @@ class TreeBoost(object):
 #   * ntrees: number of trees in the model, a positive integer (= gbm's n.trees)
 #   * shrinkage: learning rate, a positive real number (= gbm's shrinkage)
 #       Friedman et al. recommend setting to a small value < 0.1.
-#       Decreasing this parameter must be compensated by increasing ntrees.
+#       Decrease of this parameter should be compensated by increase of ntrees.
 #   * nleaves - number of leaves (terminal nodes) in each tree,
 #       a positive integer. Should be at least 2 (in which case this produces
 #       decision stumps). (nleaves = gbm's interaction.depth + 1).
@@ -113,10 +113,11 @@ class TreeBoost(object):
 #
 # Hard-coded parameters/choices:
 #   * bagging/subsampling is done by flipping a fair coin for each instance,
-#       and hence is almost equivalent to a 1/2 subsampling fraction in Friedman's
-#       pseudocode.
-#   * Loss function is square loss L(y, y') = 1/2 (y - y')^2
-#       May be changed by adjusting 'deriv' and 'gamma' functions.
+#       and hence is almost equivalent to a 1/2 subsampling fraction in
+#       Friedman's pseudocode.
+#   * Loss function is square loss L(y, y') = 1/2 (y - y')^2.
+#       May be changed by adjusting 'deriv' and 'gamma' functions
+#       in TreeBoost class.
 #
 
 def MSE(h, test_set):
