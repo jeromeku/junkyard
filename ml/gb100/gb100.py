@@ -47,7 +47,7 @@ class Node(object):
 class RegressionTree(object):
     """CART regression tree, without pruning, handles real-valued non-missing attributes only."""
 
-    def __init__(self, instances, nleaves, nminobs=10):  # nleaves and nminobs are gbm's interaction.depth+1 and n.minobsinnode
+    def __init__(self, instances, nleaves, nminobs=10):
         self.root = Node(instances, nminobs)
         self.leaves = [self.root]
         while len(self.leaves) < nleaves:
@@ -97,6 +97,22 @@ class TreeBoost(object):
         return self.bias + sum(tree(x) for tree in self.trees)
 
 ### This is line 99 - End of main code.  Auxiliary stuff follows. ###
+
+# Description of parameters and their equivalents in R's gbm package:
+#   * ntrees: number of trees in the model, a positive integer (= gbm's n.trees)
+#   * shrinkage: learning rate, a positive real number (= gbm's shrinkage)
+#       Friedman et al. recommend setting to a small value < 0.1.
+#       Decreasing this parameter must be compensated by increasing ntrees.
+#   * nleaves - number of leaves (terminal nodes) in each tree,
+#       a positive integer. Should be at least 2 (in which case this produces
+#       decision stumps). (nleaves = gbm's interaction.depth + 1).
+#       Friedman et al. recommend using nleaves=4..8, 
+#   * nminobs - minimum number of training instances that should be contained
+#       in each leaf. This allows to somewhat limit growth of trees.
+#       (= gbm's n.minobsinnode).
+#   * bagging/subsampling is done by flipping a fair coin for each instance,
+#       and hence is almost equivalent to a 1/2 subsampling fraction in Friedman's
+#       pseudocode.
 
 def MSE(h, test_set):
     """Returns mean squared error of hypothesis h on given test set."""
