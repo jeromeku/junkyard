@@ -1,0 +1,14 @@
+Error rates (lower is better)
+
+liver
+0.4       NaiveBayes
+0.388406  NaiveBayes IgnoredFeatures="drinks"
+
+german
+0.244     NaiveBayes
+0.237     NaiveBayes IgnoredFeatures="Savings,Property"
+
+australian
+0.144928  NaiveBayes
+0.133333  NaiveBayes IgnoredFeatures="A6,A11,A12,A13"
+0.121739  NaiveBayes IgnoredFeatures="A7,A10,A11" UseNormalForDiscrete=true
