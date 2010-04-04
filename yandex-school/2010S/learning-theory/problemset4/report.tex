@@ -1,0 +1,150 @@
+\documentclass[a4paper, 12pt, onepage]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{fullpage}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+\usepackage{cmap}
+\usepackage{amsmath}
+\usepackage{amssymb}
+%\usepackage{pdfpages}
+\usepackage{tikz}
+
+\usepackage[pdftex, unicode, pdfstartview=FitH, colorlinks, linkcolor=black, citecolor=blue, urlcolor=blue]{hyperref}
+\usepackage{url}
+\def\UrlFont{\rmfamily}
+
+\usepackage{setspace}
+\onehalfspacing
+
+\usepackage{cyrtimes}
+\renewcommand\ttdefault{cmtt}
+
+\frenchspacing
+\sloppy
+\selectlanguage{russian}
+
+\begin{document}
+
+\author{Красильников Иван}
+\title{}
+\maketitle
+
+\subsection*{Задача 1}
+
+Пусть $A, B, C$ -- вершины треугольника, $D$ -- точка в центре,
+$R(x, y)$ -- корреляционная функция.
+
+Согласно методу кригинга, прогнозируемое значение поля в точке $D$ вычисляется по формуле:
+$$
+  f(D) = \begin{pmatrix}
+    R(A, D) & R(B, D) & R(C, D)
+  \end{pmatrix}
+  \cdot
+  \begin{pmatrix}
+    R(A, A) & R(A, B) & R(A, C) \\
+    R(B, A) & R(B, B) & R(B, C) \\
+    R(C, A) & R(C, B) & R(C, C) 
+  \end{pmatrix}^{-1} \cdot
+  \begin{pmatrix}
+    f(A) \\ f(B) \\ f(C)
+  \end{pmatrix}
+$$
+
+Воспользуемся тем, что $R(x, y)$ зависит только от $||x-y||$ и введем
+обозначения:
+\begin{align*}
+d &= R(A, A) = R(B, B) = R(C, C) = R(D, D),\\
+a &= R(A, B) = R(A, C) = R(B, C), \\
+b &= R(A, D) = R(B, D) = R(C, D).
+\end{align*}
+
+$$
+  \hat{f}(D) = \begin{pmatrix}
+    b & b & b
+  \end{pmatrix}
+  \begin{pmatrix}
+    d & a & a \\
+    a & d & a \\
+    a & a & d 
+  \end{pmatrix}^{-1}
+  \begin{pmatrix}
+    f(A) \\ f(B) \\ f(C)
+  \end{pmatrix}
+$$
+
+Воспользуемся аналитической формулой для обратной матрицы:
+$$
+  \hat{f}(D) =
+  \frac{1}{(a-d)(2a+d)}
+  \begin{pmatrix}
+    b & b & b
+  \end{pmatrix}
+  \begin{pmatrix}
+    -a-d & a & a \\
+    a & -a-d & a \\
+    a & a & -a-d 
+  \end{pmatrix}
+  \begin{pmatrix}
+    f(A) \\ f(B) \\ f(C)
+  \end{pmatrix}
+$$
+
+Перемножим матрицы:
+\begin{align*}
+  \hat{f}(D) &=
+  \frac{1}{(a-d)(2a+d)}
+  \begin{pmatrix}
+    b(a-d) & b(a-d) & b(a-d)
+  \end{pmatrix}
+  \begin{pmatrix}
+    f(A) \\ f(B) \\ f(C)
+  \end{pmatrix} = \\
+  &= 
+  \frac{b}{2a+d}\left(f(A)+f(B)+f(C)\right).
+\end{align*}
+
+
+\subsection*{Задача 4}
+
+Нет нельзя. Пример выпуклого множества, минимизирующего эмпирический риск --
+выпуклая оболочка всех точек обучающей выборки, принадлежащих классу 0.
+Какой бы длинной ни была выборка, эта выпуклая оболочка будет пересекаться
+с полусферой, на которой лежат точки класса 0 лишь в конечном числе
+точек -- ровно в тех точках, которые попали в обучающую выборку
+(т.к. шар является строго выпуклой фигурой). Поэтому она будет
+правильно классифицировать только лишь эти точки, а бесконечно много
+других точек этой полусферы отнесёт к неправильному классу 1.
+Т.е. средняя вероятность ошибки будет равна 1 у этого классификатора,
+что больше минимально возможного значения 0 у линейного классификатора $x_1 > 0$.
+
+\subsection*{Задача 2}
+
+Пусть $y$ -- вектор выходных данных, $a$ -- вектор параметров, $X$ -- матрица
+с наблюдениями, связанные соотношением:
+$$ y = Xa + \varepsilon,$$
+$\varepsilon$ -- вектор из независимых нормальных с нулевым средним и дисперсией 2.
+
+Метод гребневой регрессии даёт следующую оценку вектора $a$:
+$$ \hat{a} = (X^T X + \lambda^2 I)^{-1} X^T y, $$
+где $\lambda$ -- параметр регуляризации.
+
+Матожидание:
+\begin{align*}
+E[\hat{a}] &= E[(X^T X + \lambda^2 I)^{-1} X^T (Xa + \varepsilon)] \\
+   &= (X^T X + \lambda^2 I)^{-1} X^T X a.
+\end{align*}
+
+Найдем матрицу ковариации этой оценки.
+
+\begin{align*}
+\mbox{Cov}(\hat{a}, \hat{a})
+&=  E[(\hat{a} - E[\hat{a}])(\hat{a} - E[\hat{a}])^T] = \\
+&=  E[((X^TX + \lambda^2 I)^{-1} X^T (y - Xa)) \cdot ((y^T - a^T X^T) X (X^TX + \lambda^2 I)^{-1})] = \\
+&=  E[(X^TX + \lambda^2 I)^{-1} X^T \varepsilon \varepsilon^T X(X^TX + \lambda^2 I)W^{-1}] = \\
+&=  E[(X^TX + \lambda^2 I)^{-1} X^T (4I) X(X^TX + \lambda^2 I)W^{-1}] = \\
+&=  4 \cdot E[(X^TX + \lambda^2 I)^{-1} X^T X (X^TX + \lambda^2 I)^{-1}].
+\end{align*}
+
+
+\end{document}
