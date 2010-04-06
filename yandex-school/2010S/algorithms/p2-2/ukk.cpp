@@ -16,7 +16,15 @@ enum { ALPHABET_SIZE = 26 };
 
 const int infinum = numeric_limits<int>::max();
 
-typedef unsigned char UChar;
+typedef unsigned char Symbol;
+
+string sample;
+
+/* Gets the letter by index*/
+Symbol GetSymbol(int index) {
+	return (index < 0) ? (-index - 1) : sample[index];
+}
+
 
 struct Link {
 	int start;
@@ -30,27 +38,30 @@ struct Link {
 		end = _end;
 		to = _to;
 	}
+	Symbol GetFirstSymbol() const {
+		return GetSymbol(start);
+	}
 };
 
 struct Vertex {
-	Link links[ALPHABET_SIZE]; /*state links*/
+	vector<Link> links; /*state links*/
 	int suffix; /*suffix link*/
 	Vertex() {
 		suffix = -1;
 	}
-};
 
+	Link *FindLink(Symbol symbol) {
+		for (size_t i = 0; i < links.size(); i++) {
+			if (links[i].GetFirstSymbol() == symbol)
+				return &links[i];
+		}
+		return NULL;
+	}
+};
 
 vector<Vertex> tree; /*suffix tree*/
 int root;
 int dummy; /*parent of root*/
-
-string sample;
-
-/* Gets the letter by index*/
-UChar GetLetter(int index) {
-	return (index < 0) ? (-index - 1) : sample[index];
-}
 
 int CreateNewVertex() {
 	int number_of_vertices = tree.size();
@@ -61,7 +72,11 @@ int CreateNewVertex() {
 /* to, from - two vertices
 [start, end) - the word on the edge */
 void CreateSuffixLink(int from, int start, int end, int to) {
-	tree[from].links[GetLetter(start)] = Link(start, end, to);
+	Link *link = tree[from].FindLink(GetSymbol(start));
+	if (link != NULL)
+		*link = Link(start, end, to);
+	else
+		tree[from].links.push_back(Link(start, end, to));
 }
 
 /*Function goes along the suffix link*/
@@ -84,12 +99,12 @@ pair<int, int> Canonize(int vertex, int start, int end) {
 	if(end <= start) {
 		return make_pair(vertex, start);
 	} else {
-		Link current = tree[vertex].links[GetLetter(start)];
-		while(end - start >= current.end - current.start) {
-			start += current.end - current.start;
-			vertex = current.to;
+		const Link *current = tree[vertex].FindLink(GetSymbol(start));
+		while(end - start >= current->end - current->start) {
+			start += current->end - current->start;
+			vertex = current->to;
 			if(end > start)
-				current = tree[vertex].links[GetLetter(start)];
+				current = tree[vertex].FindLink(GetSymbol(start));
 		}
 		return make_pair(vertex, start);
 	}
@@ -97,12 +112,12 @@ pair<int, int> Canonize(int vertex, int start, int end) {
 
 /* Checks if there is a t-transition from the (probably implicit)
 state (vertex, (start, end))*/
-pair<bool, int> Split(int vertex, int start, int end, UChar c) {
+pair<bool, int> Split(int vertex, int start, int end, Symbol c) {
 	if(end <= start) {
-		return make_pair(tree[vertex].links[c].to != -1, vertex);
+		return make_pair(tree[vertex].FindLink(c) != NULL, vertex);
 	} else {
-		Link current = tree[vertex].links[GetLetter(start)];
-		if(c == GetLetter(current.start + end - start))
+		Link current = *tree[vertex].FindLink(GetSymbol(start));
+		if(c == GetSymbol(current.start + end - start))
 			return make_pair(true, vertex);
 		int middle = CreateNewVertex();
 		CreateSuffixLink(vertex, current.start, current.start + end - start, middle);
@@ -113,9 +128,8 @@ pair<bool, int> Split(int vertex, int start, int end, UChar c) {
 
 /*Creates new branches (vertex, (start, end)) - the active point*/
 pair<int, int> Update(int vertex, int start, int end) {
-	Link current = tree[vertex].links[GetLetter(start)];
 	pair<bool, int> splitResult;
-	splitResult = Split(vertex, start, end, GetLetter(end));
+	splitResult = Split(vertex, start, end, GetSymbol(end));
 	int old_root = root;
 	while(!splitResult.first) {
 		CreateSuffixLink(splitResult.second, end, infinum, CreateNewVertex());
@@ -125,7 +139,7 @@ pair<int, int> Update(int vertex, int start, int end) {
 		pair<int, int> newPoint = Canonize(GetSuffix(vertex), start, end);
 		vertex = newPoint.first;
 		start = newPoint.second;
-		splitResult = Split(vertex, start, end, GetLetter(end));
+		splitResult = Split(vertex, start, end, GetSymbol(end));
 	}
 	if(old_root != root)
 		GetSuffix(old_root) = splitResult.second;
@@ -152,8 +166,8 @@ int ComputeDistinctSubstrings() {
 			continue;
 		
 		const Vertex &vertex = tree[vertex_id];
-		for (int link_id = 0; link_id < ALPHABET_SIZE; ++link_id) {
-			const Link &CreateSuffixLink = vertex.links[link_id];
+		for (size_t i = 0; i < vertex.links.size(); i++) {
+			const Link &CreateSuffixLink = vertex.links[i];
 			if (CreateSuffixLink.to == -1) /*denotes a non-existing link*/
 				continue;
 			if (CreateSuffixLink.end == infinum)
@@ -170,3 +184,5 @@ int main() {
 	printf("%d\n", ComputeDistinctSubstrings());
 	return 0;
 }
+
+// vim: noet ts=8 sts=8 sw=8
