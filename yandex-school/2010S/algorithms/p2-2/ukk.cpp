@@ -1,212 +1,172 @@
-// http://acm.mipt.ru/twiki/bin/view/Algorithms/UkkonenCPP
-/**
- * ukk.cpp
- * My implementation of the Ukkonen algo. Based on
- * Ukkonen's paper on this topic.
- * Daniil Shved, MIPT, 2009.
- */
 #include <vector>
 #include <algorithm>
 #include <string>
 #include <limits>
 #include <iostream>
 #include <cstdio>
-#include <cassert>
-using namespace std;
+
+using std::vector;
+using std::cin;
+using std::pair;
+using std::numeric_limits;
+using std::make_pair;
+using std::string;
 
 enum { ALPHABET_SIZE = 26 };
 
-const int inf = numeric_limits<int>::max();
+const int infinum = numeric_limits<int>::max();
+
 typedef unsigned char UChar;
 
-// Represents a link in our suffix tree
 struct Link {
-   int start, end;
-   int to;
-
-   // default: invalid link
-   Link() {
-      to = -1;
-   }
-
-   // a link with given parameters
-   Link(int _start, int _end, int _to) {
-      start = _start;
-      end = _end;
-      to = _to;
-   }
+	int start;
+	int end;
+	int to;
+	Link() {
+		to = -1; /*invalid link by default*/
+	}
+	Link(int _start, int _end, int _to) {
+		start = _start;
+		end = _end;
+		to = _to;
+	}
 };
 
-// Represents an explicit vertex in our suffix tree
 struct Vertex {
-   Link links[26];      // state links
-   int suffix;          // suffix link
-
-   Vertex() {
-      suffix = -1;
-   }
+	Link links[ALPHABET_SIZE]; /*state links*/
+	int suffix; /*suffix link*/
+	Vertex() {
+		suffix = -1;
+	}
 };
 
-// The whole suffix tree
-vector<Vertex> tree;
-int root, dummy;
 
-// The sample it is built for
+vector<Vertex> tree; /*suffix tree*/
+int root;
+int dummy; /*parent of root*/
+
 string sample;
 
-// Gets the character with the given index. Understands negative indices
-UChar t(int i) {
-   return (i<0) ? (-i-1) : sample[i];
+/* Gets the letter by index*/
+UChar GetLetter(int index) {
+	return (index < 0) ? (-index - 1) : sample[index];
 }
 
-// Creates a new vertex in the suffix tree
-int newVertex()
-{
-   int i = tree.size();
-   tree.push_back(Vertex());
-   return i;
+int CreateNewVertex() {
+	int number_of_vertices = tree.size();
+	tree.push_back(Vertex());
+	return number_of_vertices;
 }
 
-// Creates a link in the suffix tree
-// to, from - two vertices
-// [start, end) - the word on the edge
-void link(int from, int start, int end, int to)
-{
-   tree[from].links[t(start)] = Link(start, end, to);
+/* to, from - two vertices
+[start, end) - the word on the edge */
+void CreateSuffixLink(int from, int start, int end, int to) {
+	tree[from].links[GetLetter(start)] = Link(start, end, to);
 }
 
-// The f function (goes along the suffix link)
-int &f(int v)
-{
-   return tree[v].suffix;
+/*Function goes along the suffix link*/
+int &GetSuffix(int vertex) {
+	return tree[vertex].suffix;
 }
 
-// Initializes the suffix tree
-// creates two vertices: root and dummy (root's parent)
-void initTree()
-{
-   tree.clear();
-   dummy = newVertex();
-   root = newVertex();
-
-   f(root) = dummy;
-   for(int i=0; i<ALPHABET_SIZE; i++)
-      link(dummy, -i-1, -i, root);
+void InitializeTree() {
+	tree.clear();
+	dummy = CreateNewVertex();
+	root = CreateNewVertex();
+	GetSuffix(root) = dummy;
+	for(int i = 0; i < ALPHABET_SIZE; ++i) {
+		CreateSuffixLink(dummy, -i - 1, -i, root);
+	}
 }
 
-// Canonizes the reference pair (v, (start, end)) of a state (probably implicit)
-pair<int, int> canonize(int v, int start, int end)
-{
-   if(end <= start) {
-      return make_pair(v, start);
-   } else {
-      Link cur = tree[v].links[t(start)];
-      while(end - start >= cur.end - cur.start) {   
-         start += cur.end - cur.start;
-         v = cur.to;
-         if(end > start)
-            cur = tree[v].links[t(start)];
-      }
-      return make_pair(v, start);
-   }
+/* Canonizes the reference pair (vertex, (start, end)) of a state*/
+pair<int, int> Canonize(int vertex, int start, int end) {
+	if(end <= start) {
+		return make_pair(vertex, start);
+	} else {
+		Link current = tree[vertex].links[GetLetter(start)];
+		while(end - start >= current.end - current.start) {
+			start += current.end - current.start;
+			vertex = current.to;
+			if(end > start)
+				current = tree[vertex].links[GetLetter(start)];
+		}
+		return make_pair(vertex, start);
+	}
 }
 
-// Checks if there is a t-transition from the (probably implicit)
-// state (v, (start, end))
-pair<bool, int> testAndSplit(int v, int start, int end, UChar c)
-{
-   if(end <= start) {
-      return make_pair(tree[v].links[c].to != -1, v);
-   } else {
-      Link cur = tree[v].links[t(start)];
-      if(c == t(cur.start + end - start))
-         return make_pair(true, v);
-
-      int middle = newVertex();
-      link(v, cur.start, cur.start + end - start, middle);
-      link(middle, cur.start + end - start, cur.end, cur.to);
-      return make_pair(false, middle);
-   }
+/* Checks if there is a t-transition from the (probably implicit)
+state (vertex, (start, end))*/
+pair<bool, int> Split(int vertex, int start, int end, UChar c) {
+	if(end <= start) {
+		return make_pair(tree[vertex].links[c].to != -1, vertex);
+	} else {
+		Link current = tree[vertex].links[GetLetter(start)];
+		if(c == GetLetter(current.start + end - start))
+			return make_pair(true, vertex);
+		int middle = CreateNewVertex();
+		CreateSuffixLink(vertex, current.start, current.start + end - start, middle);
+		CreateSuffixLink(middle, current.start + end - start, current.end, current.to);
+		return make_pair(false, middle);
+	}
 }
 
-// Creates new branches
-// (v, (start, end)) - the active point (its canonical reference pair)
-//
-// We want to add a t(end)-transition to this point, and to f(of it), f(f(of
-// it)) and so on up to the end point
-//
-// NOTE: end must be a correct index in the sample string
-pair<int, int> update(int v, int start, int end) {
-   Link cur = tree[v].links[t(start)];
-   pair<bool, int> splitRes;
-   int oldR = root;
-
-   splitRes = testAndSplit(v, start, end, t(end));
-   while(!splitRes.first) {
-      // Add a new branch
-      link(splitRes.second, end, inf, newVertex());
-
-      // Create a suffix link from the prev. branching vertex
-      if(oldR != root)
-         f(oldR) = splitRes.second;
-      oldR = splitRes.second;
-
-      // Go to the next vertex (in the final set of STrie(T_end))
-      pair<int, int> newPoint = canonize(f(v), start, end);
-      v = newPoint.first;
-      start = newPoint.second;
-      splitRes = testAndSplit(v, start, end, t(end));
-   }
-   if(oldR != root)
-      f(oldR) = splitRes.second;
-   return make_pair(v, start);
+/*Creates new branches (vertex, (start, end)) - the active point*/
+pair<int, int> Update(int vertex, int start, int end) {
+	Link current = tree[vertex].links[GetLetter(start)];
+	pair<bool, int> splitResult;
+	splitResult = Split(vertex, start, end, GetLetter(end));
+	int old_root = root;
+	while(!splitResult.first) {
+		CreateSuffixLink(splitResult.second, end, infinum, CreateNewVertex());
+		if(old_root != root)
+			GetSuffix(old_root) = splitResult.second;
+		old_root = splitResult.second;
+		pair<int, int> newPoint = Canonize(GetSuffix(vertex), start, end);
+		vertex = newPoint.first;
+		start = newPoint.second;
+		splitResult = Split(vertex, start, end, GetLetter(end));
+	}
+	if(old_root != root)
+		GetSuffix(old_root) = splitResult.second;
+	return make_pair(vertex, start);
 }
 
-// Builds the whole suffix tree for the string sample
-void ukkonen()
-{
-   // Initialize the tree
-   initTree();
-
-   // Add characters one by one
-   pair<int, int> activePoint = make_pair(root, 0);
-   for(int i=0; i<sample.length(); i++) {
-      activePoint = update(activePoint.first, activePoint.second, i);
-      activePoint = canonize(activePoint.first, activePoint.second, i+1);
-   }
+/* Builds the whole suffix tree for the string sample*/
+void Ukkonen() {
+	InitializeTree();
+	pair<int, int> activePoint = make_pair(root, 0);
+	for(size_t i = 0; i < sample.length(); ++i) {
+		activePoint = Update(activePoint.first, activePoint.second, i);
+		activePoint = Canonize(activePoint.first, activePoint.second, i + 1);
+	}
 }
 
-int ComputeNumberOfDistinctSubstrings() {
-    for (int i = 0; i < sample.size(); i++)
-        sample[i] -= 'a';
-
-    ukkonen();
-
-    int sum_of_edge_lengths = 0;
-    for (size_t vertex_id = 0; vertex_id < tree.size(); vertex_id++) {
-        if (vertex_id == dummy)
-            continue;
-
-        const Vertex &vertex = tree[vertex_id];
-        for (int link_id = 0; link_id < ALPHABET_SIZE; link_id++) {
-            const Link &link = vertex.links[link_id];
-            if (link.to == -1)  // denotes a non-existing link
-                continue;
-
-            assert(0 <= link.start && link.start < link.end && (link.end <= sample.size() || link.end == inf));
-            if (link.end == inf)
-                sum_of_edge_lengths += sample.size() - link.start;
-            else
-                sum_of_edge_lengths += link.end - link.start;
-        }
-    }
-
-    return sum_of_edge_lengths;
+int ComputeDistinctSubstrings() {
+	for (size_t i = 0; i < sample.size(); ++i)
+		sample[i] -= 'a';
+	Ukkonen();
+	int sum_of_edge_lengths = 0;
+	for (size_t vertex_id = 0; vertex_id < tree.size(); ++vertex_id) {
+		if (vertex_id == dummy)
+			continue;
+		
+		const Vertex &vertex = tree[vertex_id];
+		for (int link_id = 0; link_id < ALPHABET_SIZE; ++link_id) {
+			const Link &CreateSuffixLink = vertex.links[link_id];
+			if (CreateSuffixLink.to == -1) /*denotes a non-existing link*/
+				continue;
+			if (CreateSuffixLink.end == infinum)
+				sum_of_edge_lengths += sample.size() - CreateSuffixLink.start;
+			else
+				sum_of_edge_lengths += CreateSuffixLink.end - CreateSuffixLink.start;
+		}
+	}
+	return sum_of_edge_lengths;
 }
 
-int main()
-{
-    cin >> sample;
-    printf("%d\n", ComputeNumberOfDistinctSubstrings());
-    return 0;
+int main() {
+	cin >> sample;
+	printf("%d\n", ComputeDistinctSubstrings());
+	return 0;
 }
