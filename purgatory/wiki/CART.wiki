@@ -1,0 +1,76 @@
+'''Classification and regression trees''' ('''CART''') is a [[machine learning]] technique for automatically building [[decision tree]]s to predict future outcomes, based on a series of past observations. It was introduced in 1984 by [[Leo Breiman]], [[Jerome H. Friedman]], [[Olshen]], [[Stone]]<ref name="Breiman1984">{{cite book
+  | author=Breiman L, Friedman JH, Olshen RA, Stone CJ.
+  | title=Classification and Regression Trees. Chapman & Hall (Wadsworth, Inc.): New York
+  | year=1984
+}}</ref>. ...it's considered /was named one of most well-known data mining algorithm.<ref name="top10"> </ref>
+
+== Description ==
+CART is used to solve [[Classification problem|classification]] and [[Regression problem|regression]] problems. It is a [[supervised learning]] algorithm, which means that the user has to provide it with a ''training set'' of past observations (also called ''training instances'') and outcomes for all such observations. Outcome can be either a discrete (for classification) or a continuous numerical value (for regression). CART uses the training set to build a [[Statistical model|model]] in the form of a [[decision tree]] which can then be used to predict outcomes for future observations.
+
+CART is considered to be a so-called [[Non-parametric statistics|non-parametric algorithm]], meaning that the number of model's parameters (i.e. size of trees) is not fixed but grows with the size of the training set.
+
+== Decision trees ==
+attributes/features
+
+== Tree building ==
+
+Nmin
+
+=== Splitting rules ===
+greedy
+
+Gini
+Twoing
+  Information gain
+
+Regression: least squares; deviation
+
+== Pruning ==
+A tree grown according to the above procedure is likely to be [[overfitting]] the training data which leads to poor generalization ability.
+According to CART methodology, it 
+
+Minimal Cost-Complexity Pruning
+
+== Missing attributes ==
+Training sets based on real-world data often contain instances in which values of some attributes are missing or unknown.
+Most non-decision-tree-based machine learning algorithms have a hard time dealing with such data. Typically they have to
+either assume some "default" value for missing attributes (which leads to [[Bias-variance tradeoff|bias]]) or throw them
+away (which reduces size of useful training set and thus increases [[Bias-variance tradeoff|variance]]).
+
+CART is notable for its ability to handle well training instances with missing attributes. In fact, it is one
+of the most elaborate parts of the CART methodology, accounting for over 50% of the code in the original CART
+implementation.<ref name="top10" />
+
+== Advantages and disadvantages ==
+; Advantages
+* CART trees are invariant to monotone transforms of attributes' values. So, unlike [[Support vector machine|SVM]] and
+  [[neural network]]s, training data does not need to preprocessed by scaling.
+* Handles equally well both numerical and categorical attributes and their mixtures.
+* Handles missing attributes.
+* Easy to interpret.
+
+; Disadvantages
+* Prone to [[overfitting]]
+* Not based on probabilistic model, can't give a confidence interval on prediction.
+* Unstable - small pertubations to training set can result in very different models.
+** But note that [[Ensemble learning|ensemble techniques]] can be used to improve stability and accuracy of unstable learning algorithms.
+
+== Related algorithms ==
+ID3, C4.5
+
+Recently, it has become a popular technique to create so-called [[Ensemble learning|ensembles]] by
+combining multiple ''base learners''. Decision trees and particularly CART trees are a fairly common choice of
+base learners in such algorithms. Several of the most well-known ensemble algorithms --
+[[Boostrap aggregation|bagging]], [[random forest]] and [[gradient boosting]] -- were in fact developed by some of
+the original authors of CART algorithm -- [[Leo Breiman]] and [[Jerome Friedman]].
+
+MARS
+
+== Software ==
+Several [[GNU R|R]] packages have an implementation of CART trees, for example, rpart package.
+R rpart
+WEKA
+
+A commercial implementation is available from [[Salford Systems]].
+
+[[Category:Decision trees]]

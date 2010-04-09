@@ -1,0 +1,27 @@
+{{About|link analysis of [[World Wide Web]]|other uses|network analysis}}
+
+In [[information retrieval]], '''link analysis''' refers to the analysis of [[hyperlink]]s and the [[Graph (mathematics)|graph]] structure of [[World Wide Web]] or other collections of hyperlinked documents, especially when it is used to improve a [[search engine]]'s ranking quality.
+
+<ref>http://nlp.stanford.edu/IR-book/html/htmledition/link-analysis-1.html</ref>
+
+
+== History ==
+http://www.ideals.uiuc.edu/bitstream/handle/2142/11119/DirichletRank%20Ranking%20Web%20Pages%20Against%20Link%20Spams.pdf?sequence=2
+
+http://ibook.ics.uci.edu/Slides/MIW%20Chapter%205.ppt
+
+== Ranking algorithms ==
+pagerank, hits
+
+== Web graph analysis ==
+boser
+
+== Other uses ==
+link text
+history of links, -> google bombs/spamming
+
+== History ==
+
+Link analysis takes its origins in [[citation analysis]] in [[bibliometrics]].
+
+
