@@ -1,14 +1,17 @@
+#include <cmath>
+
 #include "nb.h"
+#include "../../core/dataset.h"
 
 #include <cassert>
 #include <cctype>
-#include <cmath>
 #include <cstdio>
 
 #include <set>
 #include <stdexcept>
 
-REGISTER_CLASSIFIER(mll::ivank::NaiveBayes, "NaiveBayes", "ivank", "Naive Bayes");
+//REGISTER_CLASSIFIER(mll::ivank::NaiveBayes, "NaiveBayes", "ivank", "Naive Bayes");
+REGISTER_CLASSIFIER(mll::ivank::AutotuningNaiveBayes, "AutotuningNaiveBayes", "ivank", "Autotuning Naive Bayes");
 
 namespace mll {
 namespace ivank {
@@ -139,7 +142,7 @@ void NaiveBayes::Classify(IDataSet *data) const {
     for (int i = 0; i < data->GetObjectCount(); i++) {
         double log_odds = bias_;
 
-        if (!weights_[i].empty()) {
+        if (!weights_.empty()) {
             for (int j = 0; j < data->GetFeatureCount(); j++) {
                 double x = data->GetFeature(i, j);
                 if (weights_[j].size() == 1) {  // continuous
@@ -153,6 +156,86 @@ void NaiveBayes::Classify(IDataSet *data) const {
         }
 
         data->SetTarget(i, log_odds > 0 ? 1 : 0);
+    }
+}
+
+// train NaiveBayes with given parameter and compute empirical risk
+double AutotuningNaiveBayes::eval(IDataSet *ds, bool unfd, std::vector<std::string> features, double *res) {
+    std::string ignored_features;
+    for (int i = 0; i < ds->GetFeatureCount(); i++) {
+        std::string name = ds->GetMetaData().GetFeatureInfo(i).Name;
+        if (std::find(features.begin(), features.end(), name) == features.end()) {
+            if (ignored_features.size() != 0) ignored_features += ",";
+            ignored_features += name;
+        }
+    }
+
+
+    std::auto_ptr<NaiveBayes> nb(new NaiveBayes());
+    nb->SetUseNormalForDiscrete(unfd);
+    nb->SetIgnoredFeatures(ignored_features);
+
+    DataSet foo(*ds);
+    nb->Learn(&foo);
+    nb->Classify(&foo);
+
+    *res = 0;
+    for (int i = 0; i < foo.GetObjectCount(); i++)
+        if (foo.GetTarget(i) != ds->GetTarget(i))
+            *res += 1;
+    *res /= foo.GetObjectCount();
+
+    //printf("%d, %s => %.5f\n", unfd, zzz.c_str(), *res);
+
+    if (best.get() == NULL || *res < best_error) {
+        best.reset(nb.release());
+        best_error = *res;
+    }
+}
+
+void AutotuningNaiveBayes::Learn(IDataSet* data) {
+    best.reset(NULL);
+    best_error = 1e99;
+
+    for (int unfd = 0; unfd <= 1; unfd++) {
+        std::vector<std::string> features;
+        for (int i = 0; i < data->GetFeatureCount(); i++)
+            features.push_back(data->GetMetaData().GetFeatureInfo(i).Name);
+
+        double prev_err;
+        eval(data, unfd, features, &prev_err);
+
+        // backward feature selection
+        while (features.size() > 1) {
+            double best_new_err = 1e99;
+            std::vector<std::string> best_new_features;
+
+            for (int rm = 0; rm < features.size(); rm++) {
+                std::vector<std::string> new_features;
+                for (int i = 0; i < features.size(); i++)
+                    if (i != rm)
+                        new_features.push_back(features[i]);
+
+                double err;
+                eval(data, unfd, new_features, &err);
+
+                if (err < best_new_err) {
+                    best_new_err = err;
+                    best_new_features = new_features;
+                }
+            }
+
+            if (best_new_err > prev_err)
+                break;
+
+            prev_err = best_new_err;
+            features = best_new_features;
+        }
+    }
+
+    if (best.get() != NULL) {
+        fprintf(stderr, "Trained NaiveBayes. Train error: %.5f. Parameters: unfd=%d ignored_features=%s\n",
+            best_error, best->GetUseNormalForDiscrete(), best->GetIgnoredFeatures().c_str());
     }
 }
 
