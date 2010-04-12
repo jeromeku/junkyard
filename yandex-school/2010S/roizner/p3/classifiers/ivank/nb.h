@@ -1,6 +1,8 @@
 #include "../../core/factories.h"
 
 #include <vector>
+#include <string>
+#include <memory>
 
 namespace mll {
 namespace ivank {
@@ -46,6 +48,33 @@ private:
 };
 
 #undef PARAMS
+
+
+class AutotuningNaiveBayes: public Classifier<AutotuningNaiveBayes> {
+    std::auto_ptr<NaiveBayes> best;
+    double best_error;
+
+    double eval(IDataSet *ds, bool unfd, std::vector<std::string> features, double *res);
+    
+    void operator =(const AutotuningNaiveBayes &other) {}
+
+public:
+    AutotuningNaiveBayes() {}
+    ~AutotuningNaiveBayes() {}
+
+    AutotuningNaiveBayes(const AutotuningNaiveBayes &other) {
+        if (other.best.get() != NULL)
+            best.reset(new NaiveBayes(*other.best.get()));
+    }
+
+    virtual void Learn(IDataSet* data);
+
+    virtual void Classify(IDataSet* data) const {
+        if (best.get() != NULL) {
+            best->Classify(data);
+        }
+    }
+};
 
 }
 }

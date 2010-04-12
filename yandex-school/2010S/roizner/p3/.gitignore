@@ -1,0 +1,9 @@
+CMakeLists.txt
+build
+core
+data
+doc
+libs
+roizner
+cscope.out
+tags
