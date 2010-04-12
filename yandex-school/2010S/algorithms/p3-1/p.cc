@@ -1,27 +1,24 @@
-#include <cctype>
-#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 #include <string>
 #include <vector>
 
-//#define CHECK assert
-void CHECK(bool c) { if (!c) abort(); }
+#define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "Assertion %s failed at %s:%d\n", #cond, __FILE__, __LINE__); exit(1); } } while(0)
 
-class Automaton {
+class Automaton {  // {{{
 private:
     std::vector<int> edges;
-
-public:
     int size, alphabet_size, start;
     std::vector<bool> is_final;
 
-    int operator()(int vertex, int symbol) const {
-        return edges[vertex * alphabet_size + symbol];
-    }
+public:
+    int Size() const { return size; }
+    int AlphabetSize() const { return alphabet_size; }
+    int Start() const { return start; }
+    bool IsFinal(int vertex) const { return is_final[vertex]; }
 
-    int &operator()(int vertex, int symbol) {
+    int operator()(int vertex, int symbol) const {
         return edges[vertex * alphabet_size + symbol];
     }
 
@@ -44,12 +41,49 @@ public:
             int src, dst;
             char sym;
             CHECK(scanf("%d %c %d", &src, &sym, &dst) == 3);
-            (*this)(src, sym - 'a') = dst;
+            edges[src * alphabet_size + (sym - 'a')] = dst;
         }
     }
-};
+};  // }}}
 
-class UnionFind {
+class JointAutomaton {  // represents two automata as the same graph with two start states {{{
+    const Automaton &first;
+    const Automaton &second;
+
+public:
+    JointAutomaton(const Automaton &first, const Automaton &second) : first(first), second(second) {
+        CHECK(first.AlphabetSize() == second.AlphabetSize());
+    }
+
+    int Size() const {
+        return first.Size() + second.Size();
+    }
+
+    int AlphabetSize() const {
+        return first.AlphabetSize();
+    }
+
+    int Start(int which) const {
+        CHECK(which == 0 || which == 1);
+        return which == 0 ? first.Start() : (first.Size() + second.Start());
+    }
+
+    bool IsFinal(int vertex) const {
+        if (vertex < first.Size())
+            return first.IsFinal(vertex);
+        else
+            return second.IsFinal(vertex - first.Size());
+    }
+
+    int operator()(int vertex, int symbol) const {
+        if (vertex < first.Size())
+            return first(vertex, symbol);
+        else
+            return first.Size() + second(vertex - first.Size(), symbol);
+    }
+};  // }}}
+
+class UnionFind {  // {{{
 private:
     std::vector<int> parent, rank;
 
@@ -78,54 +112,50 @@ public:
             rank[x]++;
         }
     }
-};
+};  // }}}
 
 bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 {
-    int size1 = automaton1.size, size2 = automaton2.size, alphabet_size = automaton1.alphabet_size;
-    if (automaton1.alphabet_size != automaton2.alphabet_size)
+    if (automaton1.AlphabetSize() != automaton2.AlphabetSize())
         return false;
 
-    UnionFind uf(size1 + size2);
-    uf.Union(automaton1.start, size1 + automaton2.start);
+    JointAutomaton joint(automaton1, automaton2);
 
-    for (int iter = 0;; iter++) {
-        std::vector<int> temp(uf.size * alphabet_size, -1);
-        bool changed = false;
+    UnionFind uf(joint.Size());
+    uf.Union(joint.Start(0), joint.Start(1));
 
-        for (int x = 0; x < size1 + size2; x++) {
-            for (int c = 0; c < alphabet_size; c++) {
-                int y = (x < size1 ? automaton1(x, c) : (size1 + automaton2(x - size1, c)));
-                int xx = uf.Find(x);
-                int yy = uf.Find(y);
-                int &tmp = temp[xx * alphabet_size + c];
-                if (tmp == -1) {
-                    tmp = yy;
-                } else if (uf.Find(tmp) != yy) {
-                    uf.Union(tmp, yy);
-                    changed = true;
-                }
+    bool changed = false;
+    do {
+        // find states to be merged
+        std::vector< std::vector<int> > buffer(joint.Size() * joint.AlphabetSize());
+        for (int vertex = 0; vertex < joint.Size(); vertex++) {
+            int src_class = uf.Find(vertex);
+            for (int symbol = 0; symbol < joint.AlphabetSize(); symbol++) {
+                int dst_class = uf.Find(joint(vertex, symbol));
+                buffer[src_class * joint.AlphabetSize() + symbol].push_back(dst_class);
             }
         }
 
-        if (!changed) {
-            //fprintf(stderr, "Converged after %d iters\n", iter);
-            break;
+        // merge states
+        changed = false;
+        for (size_t list_index = 0; list_index < buffer.size(); list_index++) {
+            const std::vector<int> &list = buffer[list_index];
+            for (size_t index = 1; index < list.size(); index++) {
+                int src = uf.Find(list[0]);
+                int dst = uf.Find(list[index]);
+                if (src != dst) {
+                    changed = true;
+                    uf.Union(src, dst);
+                }
+            }
         }
-    }
+    } while (changed);
 
-    std::vector<int> final(uf.size, 0);
-    for (int x = 0; x < size1 + size2; x++) {
-        bool f = (x < size1 ? automaton1.is_final[x] : automaton2.is_final[x - size1]);
-        if (f)
-            final[uf.Find(x)] = 1;
-    }
-
-    for (int x = 0; x < size1 + size2; x++) {
-        bool f = (x < size1 ? automaton1.is_final[x] : automaton2.is_final[x - size1]);
-        if (f != final[uf.Find(x)])
+    // check for contradictions
+    for (int vertex = 0; vertex < joint.Size(); vertex++)
+        if (joint.IsFinal(vertex) != joint.IsFinal(uf.Find(vertex)))
             return false;
-    }
+
     return true;
 }
 
