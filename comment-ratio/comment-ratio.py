@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Computes ratio of comment size to total code size in your code base.
 # Only C/C++ sources are considered. Whitespaces are ignored.
-import os, sys, subprocess
+import os, sys, subprocess, optparse
 
 # C program to do all the parsing at which Python is way too slow
 HELPER_PROGRAM = r"""
@@ -193,8 +193,12 @@ def walk_codebase(base):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print 'Usage: %s <path to codebase>' % sys.argv[0]
+    parser = optparse.OptionParser(usage='%prog [options] <path to codebase>')
+    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', help='print detailed info')
+    (options, args) = parser.parse_args()
+
+    if len(args) != 1:
+        parser.print_help()
         return
 
     compiler = subprocess.Popen('gcc -O2 -pipe -x c -o /tmp/c-comment-ratio -', stdin=subprocess.PIPE, shell=True)
@@ -209,7 +213,7 @@ def main():
     headers = helper.stdout.readline().strip().split('\t')[:-1]
     totals = { 'Number of files': 0 }
 
-    for filepath in walk_codebase(sys.argv[1]):
+    for filepath in walk_codebase(args[0]):
         helper.stdin.write(filepath + '\n')
         helper.stdin.flush()
         line = helper.stdout.readline().strip().split('\t')
@@ -226,12 +230,16 @@ def main():
         print 'No C/C++ files were found in that path'
         return
 
-    totals['Comment ratio'] = '%.3f%%' % (totals['Comment bytes'] * 100.0 / (totals['Comment bytes'] + totals['Non-comment bytes']))
+    ratio = totals['Comment bytes'] * 100.0 / (totals['Comment bytes'] + totals['Non-comment bytes'])
 
-    headers = ['Number of files'] + headers
-    headers += [s for s in totals.keys() if s not in headers]
-    for key in headers:
-        print '%*s: %s' % (max(len(s) for s in headers), key, totals[key])
+    if not options.verbose:
+        print '%.3f' % ratio
+    else:
+        totals['Comment ratio'] = '%.3f%%' % ratio
+        headers = ['Number of files'] + headers
+        headers += [s for s in totals.keys() if s not in headers]
+        for key in headers:
+            print '%*s: %s' % (max(len(s) for s in headers), key, totals[key])
 
 if __name__ == '__main__':
     main()
