@@ -31,6 +31,58 @@
 \maketitle
 
 \subsection*{Задача 1}
+Я реализовал метод конформных предикторов с использованием Python:
+{
+\footnotesize
+\begin{verbatim}
+import numpy
+
+def conformal_algorithm(train_points, test_point):
+    # построение многочлена f(x)=a+bx+cx^2 по обучающей выборке включая
+    # проверяемую точку
+    xs = [x for (x, y) in train_points] + [test_point[0]]
+    ys = [y for (x, y) in train_points] + [test_point[1]]
+    N = len(xs)
+    c, b, a = numpy.polyfit(xs, ys, 2)
+
+    # вычисление меры странности - отклонения y от f(x)=a+bx+cx^2
+    alpha = []
+    for i in range(N):
+        x, y = xs[i], ys[i]
+        alpha.append(abs(a + b*x + c*x*x - y))
+
+    return sum([1.0 for a in alpha if a >= alpha[N-1]) / float(N)
+
+sample_x = [-1.0, -0.75, -0.5, -0.25, 0.25, 0.75, 1.0]
+sample_y = [1.0, 0.75, 0.5, 0.25, 0.25, 0.75, 1.0]
+sample = zip(sample_x, sample_y)
+
+c, b, a = numpy.polyfit(sample_x, sample_y, 2)
+print a, b, c  # многочлен построенный по обучающей выборке
+
+for i in range(5000):
+    y = i / 10000.0
+    p = conformal_algorithm(sample, (0.0, y))
+    print y, p  # значение y и степень уверенности в нем
+\end{verbatim}
+}
+
+Метод наименьших квадратов подгоняет под обучающую выборку следующий квадратный многочлен:
+$$ f(x) = 0.2483 - 0.0078x + 0.7879x^2, $$
+Таким образом, точечное предсказание в $x=0$ равно $0.2483$.
+
+Значения уверенности в каждом значении $y$, построенные методом конформных
+предикторов по сетке с шагом $0.0001$ приведены на следующем рисунке:
+\begin{figure}[h]
+  \centering
+  \includegraphics[scale=0.7]{figure2.pdf}
+\end{figure}
+
+Доверительный интервал для уровня толерантности $p=0.95$ образуют
+значения $y$ в интервале $[0.2048, 0.2855]$.
+
+Можно заметить, что интервал получился почти симметричным
+относительно точечного предсказания $y=0.2483$.
 
 
 \newpage
