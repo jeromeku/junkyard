@@ -164,17 +164,22 @@ int main()
 }
 """
 
-def good_filename(filename):
+def good_filename(filename, options):
     if filename.startswith('.'):
         return False
 
-    for ext in ['.c', '.cc', '.cpp', '.h', '.hpp']:
+    if options.headers:
+        exts = ('.h', '.hpp')
+    else:
+        exts = ('.c', '.cc', '.cpp', '.h', '.hpp')
+
+    for ext in exts:
         if filename.endswith(ext):
             return True
 
     return False
 
-def walk_codebase(base):
+def walk_codebase(base, options):
     for dir, subdirs, files in os.walk(base):
         subdirs.sort()
         for s in list(subdirs):
@@ -182,7 +187,7 @@ def walk_codebase(base):
                 subdirs.remove(s)
 
         for filename in sorted(files):
-            if not good_filename(filename):
+            if not good_filename(filename, options):
                 continue
 
             filepath = os.path.join(dir, filename)
@@ -194,7 +199,8 @@ def walk_codebase(base):
 
 def main():
     parser = optparse.OptionParser(usage='%prog [options] <path to codebase>')
-    parser.add_option('-v', '--verbose', action='store_true', dest='verbose', help='print detailed info')
+    parser.add_option('-v', '--verbose', action='count', dest='verbose', default=0, help='print detailed info (specify twice for even more info)')
+    parser.add_option('-i', '--headers', action='store_true', dest='headers', help='only check .h/.hpp files')
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
@@ -213,26 +219,36 @@ def main():
     headers = helper.stdout.readline().strip().split('\t')[:-1]
     totals = { 'Number of files': 0 }
 
-    for filepath in walk_codebase(args[0]):
-        helper.stdin.write(filepath + '\n')
-        helper.stdin.flush()
-        line = helper.stdout.readline().strip().split('\t')
-        if len(line) == 0:
-            continue
+    if options.verbose >= 2:
+        print '\t'.join(headers) + '\tFilename'
 
-        for i, h in enumerate(headers):
-            totals[h] = totals.get(h, 0) + int(line[i])
-        totals['Number of files'] += 1
+    for arg in args:
+        for filepath in walk_codebase(arg, options):
+            helper.stdin.write(filepath + '\n')
+            helper.stdin.flush()
+            line = helper.stdout.readline().strip().split('\t')
+            if len(line) == 0:
+                continue
+
+            if options.verbose >= 2:
+                print '\t'.join(line)
+
+            for i, h in enumerate(headers):
+                totals[h] = totals.get(h, 0) + int(line[i])
+            totals['Number of files'] += 1
 
     helper.stdin.close()
 
     if totals['Number of files'] == 0:
-        print 'No C/C++ files were found in that path'
+        if options.headers:
+            print 'No C/C++ headers were found in that path'
+        else:
+            print 'No C/C++ sources and headers were found in that path'
         return
 
-    ratio = totals['Comment bytes'] * 100.0 / (totals['Comment bytes'] + totals['Non-comment bytes'])
+    ratio = totals['Comment bytes'] * 100.0 / (totals['Comment bytes'] + totals['Non-comment bytes'])  # TODO: check div by 0
 
-    if not options.verbose:
+    if options.verbose == 0:
         print '%.3f' % ratio
     else:
         totals['Comment ratio'] = '%.3f%%' % ratio
