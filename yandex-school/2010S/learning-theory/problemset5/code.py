@@ -12,16 +12,16 @@ def conformal_algorithm(train_points, test_point):
     c, b, a = numpy.polyfit(xs, ys, 2)
 
     # вычисление меры странности - отклонения y от f(x)=a+bx+cx^2
-    alpha = []
+    arr = []
     for i in range(N):
         x, y = xs[i], ys[i]
-        alpha.append(abs(a + b*x + c*x*x - y))
+        arr.append([abs(a + b*x + c*x*x - y), i])
 
-    result = 0.0
-    for i in range(N):
-        if alpha[i] >= alpha[N-1]:
-            result += 1.0
-    return result / N
+    arr.sort()
+
+    for new_index, (value, old_index) in enumerate(arr):
+        if old_index == N - 1:
+            return (new_index + 1) / float(N)
 
 def main():
     sample_x = [-1.0, -0.75, -0.5, -0.25, 0.25, 0.75, 1.0]
@@ -35,7 +35,7 @@ def main():
     for i in range(5000):
         y = i / 10000.0
         p = conformal_algorithm(sample, (0.0, y))
-        if p >= 0.95:
+        if p <= 0.95:
             print y,
         plot_y.append(y); plot_p.append(p)
 
@@ -44,6 +44,6 @@ def main():
     pyplot.xlabel('y')
     pyplot.ylabel('p')
     fig_plot.plot(plot_y, plot_p)
-    fig.savefig('figure2.pdf')
+    fig.savefig('figure.pdf')
 
 main()
