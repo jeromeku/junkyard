@@ -15,13 +15,19 @@ private:
 public:
     int Size() const { return size; }
     int AlphabetSize() const { return alphabet_size; }
-    int Start() const { return start; }
+    
+    // Returns start state
+    int GetStartVertex() const { return start; }
+
+    // Returns true if the vertex represents a final state
     bool IsFinal(int vertex) const { return is_final[vertex]; }
 
+    // Transition function
     int operator()(int vertex, int symbol) const {
         return edges[vertex * alphabet_size + symbol];
     }
 
+    // Reads graph from stdin
     void Read() {
         int num_terminals;
         CHECK(scanf("%d %d %d", &size, &num_terminals, &alphabet_size) == 3);
@@ -63,11 +69,13 @@ public:
         return first.AlphabetSize();
     }
 
-    int Start(int which) const {
-        CHECK(which == 0 || which == 1);
-        return which == 0 ? first.Start() : (first.Size() + second.Start());
+    // Returns start state if first (automaton_number=0) or second automaton (automaton_number=1)
+    int GetStartVertex(int automaton_number) const {
+        CHECK(automaton_number == 0 || automaton_number == 1);
+        return automaton_number == 0 ? first.GetStartVertex() : (first.Size() + second.GetStartVertex());
     }
 
+    // Returns true if the vertex represents a final state
     bool IsFinal(int vertex) const {
         if (vertex < first.Size())
             return first.IsFinal(vertex);
@@ -75,6 +83,7 @@ public:
             return second.IsFinal(vertex - first.Size());
     }
 
+    // Transition function
     int operator()(int vertex, int symbol) const {
         if (vertex < first.Size())
             return first(vertex, symbol);
@@ -83,6 +92,7 @@ public:
     }
 };  // }}}
 
+// Union-find data structure with path compression and union by rank heuristics.
 class UnionFind {  // {{{
 private:
     std::vector<int> parent, rank;
@@ -95,6 +105,7 @@ public:
             parent[i] = i;
     }
 
+    // Find representative of the class that x belongs to
     int Find(int x) {
         if (parent[parent[x]] == parent[x])
             return parent[x];
@@ -102,6 +113,7 @@ public:
             return parent[x] = Find(parent[x]);
     }
 
+    // Unite two classes
     void Union(int x, int y) {
         x = Find(x);
         y = Find(y);
@@ -121,31 +133,31 @@ bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 
     JointAutomaton joint(automaton1, automaton2);
 
-    UnionFind uf(joint.Size());
-    uf.Union(joint.Start(0), joint.Start(1));
+    UnionFind unionFind(joint.Size());
+    unionFind.Union(joint.GetStartVertex(0), joint.GetStartVertex(1));
 
     bool changed = false;
     do {
         // find states to be merged
-        std::vector< std::vector<int> > buffer(joint.Size() * joint.AlphabetSize());
+        std::vector< std::vector<int> > mergeSequences(joint.Size() * joint.AlphabetSize());
         for (int vertex = 0; vertex < joint.Size(); vertex++) {
-            int src_class = uf.Find(vertex);
+            int src_class = unionFind.Find(vertex);
             for (int symbol = 0; symbol < joint.AlphabetSize(); symbol++) {
-                int dst_class = uf.Find(joint(vertex, symbol));
-                buffer[src_class * joint.AlphabetSize() + symbol].push_back(dst_class);
+                int dst_class = unionFind.Find(joint(vertex, symbol));
+                mergeSequences[src_class * joint.AlphabetSize() + symbol].push_back(dst_class);
             }
         }
 
         // merge states
         changed = false;
-        for (size_t list_index = 0; list_index < buffer.size(); list_index++) {
-            const std::vector<int> &list = buffer[list_index];
+        for (size_t list_index = 0; list_index < mergeSequences.size(); list_index++) {
+            const std::vector<int> &list = mergeSequences[list_index];
             for (size_t index = 1; index < list.size(); index++) {
-                int src = uf.Find(list[0]);
-                int dst = uf.Find(list[index]);
+                int src = unionFind.Find(list[0]);
+                int dst = unionFind.Find(list[index]);
                 if (src != dst) {
                     changed = true;
-                    uf.Union(src, dst);
+                    unionFind.Union(src, dst);
                 }
             }
         }
@@ -153,7 +165,7 @@ bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 
     // check for contradictions
     for (int vertex = 0; vertex < joint.Size(); vertex++)
-        if (joint.IsFinal(vertex) != joint.IsFinal(uf.Find(vertex)))
+        if (joint.IsFinal(vertex) != joint.IsFinal(unionFind.Find(vertex)))
             return false;
 
     return true;
