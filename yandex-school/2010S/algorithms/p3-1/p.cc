@@ -7,50 +7,71 @@
 #define CHECK(cond) do { if (!(cond)) { fprintf(stderr, "Assertion %s failed at %s:%d\n", #cond, __FILE__, __LINE__); exit(1); } } while(0)
 
 class Automaton {  // {{{
-private:
-    std::vector<int> edges;
+  private:
     int size, alphabet_size, start;
+    std::vector<int> edges;
     std::vector<bool> is_final;
 
-public:
+  public:
+    // size - number of vertices, alphabet_size - size of alphabet (symbols are represented by integers 0, 1, ...)
+    Automaton(int size, int alphabet_size) :
+        size(size), alphabet_size(alphabet_size), start(0), edges(size * alphabet_size, -1), is_final(size, false) {}
+
+    void SetStartVertex(int vertex) { start = vertex; }
+    void MarkVertexAsFinal(int vertex) { is_final[vertex] = true; }
+
+    void AddEdge(int src, int symbol, int dst) {
+        CHECK(edges[src * alphabet_size + symbol] == -1);
+        edges[src * alphabet_size + symbol] = dst;
+    }
+
+    // Returns number of vertices
     int Size() const { return size; }
+
     int AlphabetSize() const { return alphabet_size; }
-    int Start() const { return start; }
+    
+    // Returns start state
+    int GetStartVertex() const { return start; }
+
+    // Returns true if the vertex represents a final state
     bool IsFinal(int vertex) const { return is_final[vertex]; }
 
+    // Transition function. Returns -1 if edge doesn't exist.
     int operator()(int vertex, int symbol) const {
         return edges[vertex * alphabet_size + symbol];
     }
-
-    void Read() {
-        int num_terminals;
-        CHECK(scanf("%d %d %d", &size, &num_terminals, &alphabet_size) == 3);
-
-        start = 0;
-
-        is_final.resize(size, false);
-        for (int i = 0; i < num_terminals; i++) {
-            int vertex;
-            CHECK(scanf("%d", &vertex) == 1);
-            is_final[vertex] = true;
-        }
-
-        int num_edges = size * alphabet_size;
-        edges.resize(num_edges, -1);
-        for (int i = 0; i < num_edges; i++) {
-            int src, dst;
-            char sym;
-            CHECK(scanf("%d %c %d", &src, &sym, &dst) == 3);
-            edges[src * alphabet_size + (sym - 'a')] = dst;
-        }
-    }
 };  // }}}
+
+// Reads graph from stdin
+Automaton ReadAutomaton() {
+    int num_terminals, size, alphabet_size;
+    CHECK(scanf("%d %d %d", &size, &num_terminals, &alphabet_size) == 3);
+    
+    Automaton automaton(size, alphabet_size);
+    automaton.SetStartVertex(0);
+
+    for (int i = 0; i < num_terminals; i++) {
+        int vertex;
+        CHECK(scanf("%d", &vertex) == 1);
+        automaton.MarkVertexAsFinal(vertex);
+    }
+
+    int num_edges = size * alphabet_size;
+    for (int i = 0; i < num_edges; i++) {
+        int src, dst;
+        char sym;
+        CHECK(scanf("%d %c %d", &src, &sym, &dst) == 3);
+        automaton.AddEdge(src, sym - 'a', dst);
+    }
+
+    return automaton;
+}
 
 class JointAutomaton {  // represents two automata as the same graph with two start states {{{
     const Automaton &first;
     const Automaton &second;
 
-public:
+  public:
     JointAutomaton(const Automaton &first, const Automaton &second) : first(first), second(second) {
         CHECK(first.AlphabetSize() == second.AlphabetSize());
     }
@@ -63,11 +84,13 @@ public:
         return first.AlphabetSize();
     }
 
-    int Start(int which) const {
-        CHECK(which == 0 || which == 1);
-        return which == 0 ? first.Start() : (first.Size() + second.Start());
+    // Returns start state if first (automaton_number=0) or second automaton (automaton_number=1)
+    int GetStartVertex(int automaton_number) const {
+        CHECK(automaton_number == 0 || automaton_number == 1);
+        return automaton_number == 0 ? first.GetStartVertex() : (first.Size() + second.GetStartVertex());
     }
 
+    // Returns true if the vertex represents a final state
     bool IsFinal(int vertex) const {
         if (vertex < first.Size())
             return first.IsFinal(vertex);
@@ -75,6 +98,7 @@ public:
             return second.IsFinal(vertex - first.Size());
     }
 
+    // Transition function
     int operator()(int vertex, int symbol) const {
         if (vertex < first.Size())
             return first(vertex, symbol);
@@ -83,11 +107,12 @@ public:
     }
 };  // }}}
 
+// Union-find data structure with path compression and union by rank heuristics.
 class UnionFind {  // {{{
-private:
+  private:
     std::vector<int> parent, rank;
 
-public:
+  public:
     int size;
 
     UnionFind(int size) : parent(size), rank(size, 0), size(size) {
@@ -95,6 +120,7 @@ public:
             parent[i] = i;
     }
 
+    // Find representative of the class that x belongs to
     int Find(int x) {
         if (parent[parent[x]] == parent[x])
             return parent[x];
@@ -102,6 +128,7 @@ public:
             return parent[x] = Find(parent[x]);
     }
 
+    // Unite two classes
     void Union(int x, int y) {
         x = Find(x);
         y = Find(y);
@@ -121,31 +148,31 @@ bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 
     JointAutomaton joint(automaton1, automaton2);
 
-    UnionFind uf(joint.Size());
-    uf.Union(joint.Start(0), joint.Start(1));
+    UnionFind unionFind(joint.Size());
+    unionFind.Union(joint.GetStartVertex(0), joint.GetStartVertex(1));
 
     bool changed = false;
     do {
         // find states to be merged
-        std::vector< std::vector<int> > buffer(joint.Size() * joint.AlphabetSize());
+        std::vector< std::vector<int> > mergeSequences(joint.Size() * joint.AlphabetSize());
         for (int vertex = 0; vertex < joint.Size(); vertex++) {
-            int src_class = uf.Find(vertex);
+            int src_class = unionFind.Find(vertex);
             for (int symbol = 0; symbol < joint.AlphabetSize(); symbol++) {
-                int dst_class = uf.Find(joint(vertex, symbol));
-                buffer[src_class * joint.AlphabetSize() + symbol].push_back(dst_class);
+                int dst_class = unionFind.Find(joint(vertex, symbol));
+                mergeSequences[src_class * joint.AlphabetSize() + symbol].push_back(dst_class);
             }
         }
 
         // merge states
         changed = false;
-        for (size_t list_index = 0; list_index < buffer.size(); list_index++) {
-            const std::vector<int> &list = buffer[list_index];
+        for (size_t list_index = 0; list_index < mergeSequences.size(); list_index++) {
+            const std::vector<int> &list = mergeSequences[list_index];
             for (size_t index = 1; index < list.size(); index++) {
-                int src = uf.Find(list[0]);
-                int dst = uf.Find(list[index]);
+                int src = unionFind.Find(list[0]);
+                int dst = unionFind.Find(list[index]);
                 if (src != dst) {
                     changed = true;
-                    uf.Union(src, dst);
+                    unionFind.Union(src, dst);
                 }
             }
         }
@@ -153,7 +180,7 @@ bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 
     // check for contradictions
     for (int vertex = 0; vertex < joint.Size(); vertex++)
-        if (joint.IsFinal(vertex) != joint.IsFinal(uf.Find(vertex)))
+        if (joint.IsFinal(vertex) != joint.IsFinal(unionFind.Find(vertex)))
             return false;
 
     return true;
@@ -161,9 +188,8 @@ bool CheckEquivalence(const Automaton &automaton1, const Automaton &automaton2)
 
 int main()
 {
-    Automaton a, b;
-    a.Read();
-    b.Read();
+    Automaton a = ReadAutomaton();
+    Automaton b = ReadAutomaton();
     printf(CheckEquivalence(a, b) ? "EQUIVALENT\n" : "NOT EQUIVALENT\n");
     return 0;
 }
