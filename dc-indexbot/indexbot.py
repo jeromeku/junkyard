@@ -5,8 +5,6 @@
 # filelists of all hub's users into a local directory.
 #
 # TODO:
-#   * during the first launch bot shouldn't try to connect
-#     to everyone at once.
 #   * human interaction: chat, web search frontend
 #
 import os, sys, socket, threading, optparse, time, select, array, traceback
@@ -150,7 +148,8 @@ class Index(object):
 
     def save(self):
         fp = file(self.index_path_temp, 'w')
-        for key, rec in self.table.iteritems():
+        for key in sorted(self.table.keys()):
+            rec = self.table[key]
             if rec.last_check_completed is not None:
                 fp.write('%s\t%s\t%s\n' % (rec.username, int(rec.last_check_completed), os.path.basename(rec.filename)))
         fp.close()
@@ -220,6 +219,25 @@ class PeerThread(object):
                 return
 
 
+class Sedative(object):
+    def __init__(self, rates_and_periods):
+        self.spec = rates_and_periods
+        self.counts = [0] * len(self.spec)
+        self.last_reset = [time.time()] * len(self.spec)
+
+    def register(self):
+        t = time.time()
+        res = True
+        for i, (rate, period) in enumerate(self.spec):
+            if abs(t - self.last_reset[i]) > period:
+                self.last_reset[i] = t
+                self.counts[i] = 0
+            self.counts[i] += 1
+            if self.counts[i] > rate:
+                res = False
+        return res
+
+
 class Bot(object):
     def __init__(self, options):
         self.conn = None
@@ -235,6 +253,7 @@ class Bot(object):
         self.local_sock.listen(5)
         if not os.path.exists(options.logs_dir):
             os.makedirs(options.logs_dir)
+        self.sedative = Sedative([(5, 5), (60, 20)])  # max 5 conn per 5 sec, 20 conn per minute
 
     def connect(self):
         try:
@@ -332,6 +351,8 @@ class Bot(object):
         if user_rec.last_check_initiated is not None:
             if (time.time() - user_rec.last_check_initiated) < int(self.options.recheck_time_after_failure):
                 return
+        if not self.sedative.register():
+            return
 
         user_rec.last_check_initiated = time.time()
         self.enqueue('$ConnectToMe %s %s:%s|' % (user, self.conn.sock.getsockname()[0], self.local_sock.getsockname()[1]))
@@ -341,7 +362,6 @@ class Bot(object):
         self.send_queue.append(msg)
 
     def peer_connected(self, peer_nick):
-        if '\t' in peer_nick: return None
         self.mutex.acquire()
         rec = self.index.find(peer_nick)
         if rec is not None:
@@ -373,7 +393,7 @@ def main():
     parser.add_option('--server', dest='server', default='192.168.80.1')
     parser.add_option('--port', dest='port', default='411')
     parser.add_option('--recheck', dest='recheck_time', default='21600')
-    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='300')
+    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='60')
     parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dc-indexbot')
     parser.add_option('--encoding', dest='encoding', default='cp1251')
     (options, args) = parser.parse_args()
