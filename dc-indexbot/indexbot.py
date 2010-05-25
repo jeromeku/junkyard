@@ -7,11 +7,13 @@
 # TODO:
 #   * during the first launch bot shouldn't try to connect
 #     to everyone at once.
+#   * human interaction: chat, web search frontend
 #
 import os, sys, socket, threading, optparse, time, select, array, traceback
 
 def log(msg):
     sys.stdout.write(msg)
+    sys.stdout.flush()
 
 def split_msg(message):
     i = message.find(' ')
@@ -235,7 +237,7 @@ class Bot(object):
             if self.conn is not None:
                 self.conn.close()
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((self.options.server, self.options.port))
+            sock.connect((self.options.server, int(self.options.port)))
             self.conn = Connection(sock)
             self.conn_state = 1
         except:
@@ -292,10 +294,10 @@ class Bot(object):
         head, tail = split_msg(message)
 
         if head == '$Lock':
-            return
-        elif head == '$HubName':
             if self.conn_state == 1:
                 self.enqueue('$ValidateNick %s|' % self.options.nick)
+        elif head == '$HubName':
+            pass
         elif head == '$ValidateDenide':
             raise Exception('Nick "%s" is already used')
         elif head == '$Hello':
@@ -320,10 +322,10 @@ class Bot(object):
         if user_rec.connected:
             return
         if user_rec.last_check_completed is not None:
-            if (time.time() - user_rec.last_check_completed) < self.options.recheck_time:
+            if (time.time() - user_rec.last_check_completed) < int(self.options.recheck_time):
                 return
         if user_rec.last_check_initiated is not None:
-            if (time.time() - user_rec.last_check_initiated) < self.options.recheck_time_after_failure:
+            if (time.time() - user_rec.last_check_initiated) < int(self.options.recheck_time_after_failure):
                 return
 
         user_rec.last_check_initiated = time.time()
@@ -340,10 +342,10 @@ def main():
     parser.add_option('--interest', dest='interest', default='<indexbot V:0.1>')
     parser.add_option('--speed', dest='speed', default='1000')
     parser.add_option('--email', dest='email', default='')
-    parser.add_option('--server', dest='server', default='server.lan')
-    parser.add_option('--port', dest='port', type='int', default=411)
-    parser.add_option('--recheck', dest='recheck_time', type='int', default=7200)
-    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', type='int', default=300)
+    parser.add_option('--server', dest='server', default='192.168.80.1')
+    parser.add_option('--port', dest='port', default='411')
+    parser.add_option('--recheck', dest='recheck_time', default='7200')
+    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='300')
     parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dc-indexbot')
     (options, args) = parser.parse_args()
 
