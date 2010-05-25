@@ -12,7 +12,7 @@
 import os, sys, socket, threading, optparse, time, select, array, traceback
 
 def log(msg):
-    sys.stdout.write(msg)
+    sys.stdout.write(time.ctime() + ' ' + msg)
     sys.stdout.flush()
 
 def split_msg(message):
@@ -97,9 +97,9 @@ class Connection(object):
 class IndexRecord(object):
     def __init__(self, username):
         self.username = username
+        self.connected = False
         self.last_check_initiated = None
         self.last_check_completed = None
-        self.connected = False
         self.filename = None
         self.temp_filename = None
 
@@ -125,8 +125,12 @@ class Index(object):
         rec.temp_filename = rec.filename + '.temp'
         self.table[name] = rec
         return rec
-    
+
     def clean_username(self, name):
+        try:
+            name = name.decode(self.options.encoding).encode('utf-8')
+        except:
+            pass
         for ch in '/\\*?$ \t\r\n%&$!@^()[]':
             name = name.replace(ch, '_')
         if name.startswith('.'):
@@ -139,7 +143,9 @@ class Index(object):
             for line in file(self.index_path):
                 name, tm, filename = line.strip().split('\t')
                 rec = self.create(name)
-                if rec is not None:
+                if rec is None:
+                    continue
+                if os.path.exists(os.path.join(self.options.logs_dir, filename)):
                     rec.last_check_completed = int(tm)
 
     def save(self):
@@ -162,16 +168,18 @@ class PeerThread(object):
         self.user_rec = None
 
     def __call__(self):
+        success = False
         try:
-            self.run()
+            if self.run() is True:
+                success = True
+        except KeyboardInterrupt:
+            log('Interrupted from keyboard')
+            sys.exit(1)
         except:
             if self.user_rec is not None:
-                self.parent.mutex.acquire()
-                self.user_rec.connected = False
-                self.parent.mutex.release()
-
+                log('Exception occurred when tried to download from %s\n' % self.user_rec.username)
             traceback.print_exc()
-            sys.exit(1)
+        self.parent.peer_disconnected(self.user_rec, success)
         self.conn.sock.close()
 
     def run(self):
@@ -182,15 +190,14 @@ class PeerThread(object):
 
         while True:
             msg = self.conn.recv()
-            log('Received from peer: %s\n' % msg)
+            if self.user_rec is None:
+                log('Received from peer: %s\n' % msg)
+            else:
+                log('Received from %s: %s\n' % (self.user_rec.username, msg))
             head, tail = split_msg(msg)
             if head == '$MyNick':
                 self.peer_nick = tail
-                self.parent.mutex.acquire()
-                self.user_rec = self.parent.index.find(self.peer_nick)
-                if self.user_rec is not None:
-                    self.user_rec.connected = True
-                self.parent.mutex.release()
+                self.user_rec = self.parent.peer_connected(self.peer_nick)
                 if self.user_rec is None:
                     return
             elif head == '$Lock':
@@ -208,11 +215,8 @@ class PeerThread(object):
                 fp.close()
                 os.rename(self.user_rec.temp_filename, self.user_rec.filename)
                 self.user_rec.last_check_completed = time.time()
-                log('Successfully downloaded filelist from %s\n' % self.peer_nick)
-
-                self.parent.mutex.acquire()
-                self.parent.index.save()
-                self.parent.mutex.release()
+                return True
+            elif head == '$MaxedOut' or head == '$Error':
                 return
 
 
@@ -246,6 +250,7 @@ class Bot(object):
             raise
 
     def run(self):
+        log(self.options.interest + ' is started.\n')
         while True:
             if self.conn is None:
                 try:
@@ -335,18 +340,42 @@ class Bot(object):
         assert msg.endswith('|')
         self.send_queue.append(msg)
 
+    def peer_connected(self, peer_nick):
+        if '\t' in peer_nick: return None
+        self.mutex.acquire()
+        rec = self.index.find(peer_nick)
+        if rec is not None:
+            if rec.connected:
+                rec = None
+            else:
+                rec.connected = True
+        self.mutex.release()
+        return rec
+
+    def peer_disconnected(self, rec, success):
+        if rec is None:
+            return
+        if success:
+            log('Successful download from %s\n' % rec.username)
+        self.mutex.acquire()
+        rec.connected = False
+        if success:
+            self.index.save()
+        self.mutex.release()
+
 
 def main():
     parser = optparse.OptionParser()
     parser.add_option('--nick', dest='nick', default='indexbot')
-    parser.add_option('--interest', dest='interest', default='<indexbot V:0.1>')
+    parser.add_option('--interest', dest='interest', default='<Indexbot V:0.1>')
     parser.add_option('--speed', dest='speed', default='1000')
     parser.add_option('--email', dest='email', default='')
     parser.add_option('--server', dest='server', default='192.168.80.1')
     parser.add_option('--port', dest='port', default='411')
-    parser.add_option('--recheck', dest='recheck_time', default='7200')
+    parser.add_option('--recheck', dest='recheck_time', default='21600')
     parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='300')
     parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dc-indexbot')
+    parser.add_option('--encoding', dest='encoding', default='cp1251')
     (options, args) = parser.parse_args()
 
     bot = Bot(options)
