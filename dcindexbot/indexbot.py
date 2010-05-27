@@ -4,9 +4,6 @@
 # A simple direct connect bot that periodically downloads
 # filelists of all hub's users into a local directory.
 #
-# TODO:
-#   * human interaction: chat, web search frontend
-#
 import os, sys, socket, threading, optparse, time, select, array, traceback
 
 def log(msg):
@@ -219,7 +216,7 @@ class PeerThread(object):
                 return
 
 
-class Sedative(object):
+class RateLimiter(object):
     def __init__(self, rates_and_periods):
         self.spec = rates_and_periods
         self.counts = [0] * len(self.spec)
@@ -232,9 +229,11 @@ class Sedative(object):
             if abs(t - self.last_reset[i]) > period:
                 self.last_reset[i] = t
                 self.counts[i] = 0
-            self.counts[i] += 1
-            if self.counts[i] > rate:
+            if self.counts[i] >= rate:
                 res = False
+        if res:
+            for i in xrange(len(self.sepc)):
+                self.counts[i] += 1
         return res
 
 
@@ -253,7 +252,7 @@ class Bot(object):
         self.local_sock.listen(5)
         if not os.path.exists(options.logs_dir):
             os.makedirs(options.logs_dir)
-        self.sedative = Sedative([(5, 5), (60, 20)])  # max 5 conn per 5 sec, 20 conn per minute
+        self.rate_limiter = RateLimiter([(5, 5), (60, 20)])  # max 5 conn per 5 sec, 20 conn per minute
 
     def connect(self):
         try:
@@ -351,7 +350,7 @@ class Bot(object):
         if user_rec.last_check_initiated is not None:
             if (time.time() - user_rec.last_check_initiated) < int(self.options.recheck_time_after_failure):
                 return
-        if not self.sedative.register():
+        if not self.rate_limiter.register():
             return
 
         user_rec.last_check_initiated = time.time()
@@ -394,7 +393,7 @@ def main():
     parser.add_option('--port', dest='port', default='411')
     parser.add_option('--recheck', dest='recheck_time', default='21600')
     parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='60')
-    parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dc-indexbot')
+    parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dcindexbot')
     parser.add_option('--encoding', dest='encoding', default='cp1251')
     (options, args) = parser.parse_args()
 
