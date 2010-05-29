@@ -105,7 +105,7 @@ class Index(object):
     def __init__(self, options):
         self.table = dict()
         self.options = options
-        self.index_path = os.path.join(self.options.logs_dir, 'index')
+        self.index_path = os.path.join(self.options.datadir, 'index')
         self.index_path_temp = self.index_path + '.temp'
 
     def find(self, name):
@@ -113,19 +113,22 @@ class Index(object):
 
     def create(self, name):
         assert name not in self.table
+
+        try:
+            name.decode('utf-8')
+        except:
+            return None
         if '\t' in name:
             return None
+
         rec = IndexRecord(name)
-        rec.filename = os.path.join(self.options.logs_dir, self.clean_username(name) + '.xml.bz2')
+        rec.filename = os.path.join(self.options.datadir, self.clean_username(name) + '.xml.bz2')
         rec.temp_filename = rec.filename + '.temp'
         self.table[name] = rec
         return rec
 
     def clean_username(self, name):
-        try:
-            name = name.decode(self.options.encoding).encode('utf-8')
-        except:
-            pass
+        name = str(name)
         for ch in '/\\*?$ \t\r\n%&$!@^()[]':
             name = name.replace(ch, '_')
         if name.startswith('.'):
@@ -137,11 +140,16 @@ class Index(object):
         if os.path.exists(self.index_path):
             for line in file(self.index_path):
                 name, tm, filename = line.strip().split('\t')
+                try:
+                    name.decode('utf-8')
+                except:
+                    continue
+                if not os.path.exists(os.path.join(self.options.datadir, filename)):
+                    continue
                 rec = self.create(name)
                 if rec is None:
                     continue
-                if os.path.exists(os.path.join(self.options.logs_dir, filename)):
-                    rec.last_check_completed = int(tm)
+                rec.last_check_completed = int(tm)
 
     def save(self):
         fp = file(self.index_path_temp, 'w')
@@ -192,7 +200,7 @@ class PeerThread(object):
                 log('Received from %s: %s\n' % (self.user_rec.username, msg))
             head, tail = split_msg(msg)
             if head == '$MyNick':
-                self.peer_nick = tail
+                self.peer_nick = tail.decode(self.parent.options.hub_encoding).encode('utf-8')
                 self.user_rec = self.parent.peer_connected(self.peer_nick)
                 if self.user_rec is None:
                     return
@@ -232,7 +240,7 @@ class RateLimiter(object):
             if self.counts[i] >= rate:
                 res = False
         if res:
-            for i in xrange(len(self.sepc)):
+            for i in xrange(len(self.spec)):
                 self.counts[i] += 1
         return res
 
@@ -250,8 +258,8 @@ class Bot(object):
         self.local_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.local_sock.bind(('0.0.0.0', 0))
         self.local_sock.listen(5)
-        if not os.path.exists(options.logs_dir):
-            os.makedirs(options.logs_dir)
+        if not os.path.exists(options.datadir):
+            os.makedirs(options.datadir)
         self.rate_limiter = RateLimiter([(5, 5), (60, 20)])  # max 5 conn per 5 sec, 20 conn per minute
 
     def connect(self):
@@ -393,8 +401,8 @@ def main():
     parser.add_option('--port', dest='port', default='411')
     parser.add_option('--recheck', dest='recheck_time', default='21600')
     parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='60')
-    parser.add_option('--logs-dir', dest='logs_dir', default='/tmp/dcindexbot')
-    parser.add_option('--encoding', dest='encoding', default='cp1251')
+    parser.add_option('--dir', dest='datadir', default='/tmp/dcindexbot')
+    parser.add_option('--hub-encoding', dest='hub_encoding', default='cp1251')
     (options, args) = parser.parse_args()
 
     bot = Bot(options)
