@@ -390,19 +390,27 @@ class Bot(object):
             self.index.save()
         self.mutex.release()
 
-
 def main():
     parser = optparse.OptionParser()
-    parser.add_option('--nick', dest='nick', default='indexbot')
+    parser.add_option('--nick', dest='nick', default='indexbot',
+            help='Nickname')
     parser.add_option('--interest', dest='interest', default='<Indexbot V:0.1>')
-    parser.add_option('--speed', dest='speed', default='1000')
-    parser.add_option('--email', dest='email', default='')
-    parser.add_option('--server', dest='server', default='192.168.80.1')
-    parser.add_option('--port', dest='port', default='411')
-    parser.add_option('--recheck', dest='recheck_time', default='21600')
-    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='60')
-    parser.add_option('--dir', dest='datadir', default='/tmp/dcindexbot')
-    parser.add_option('--hub-encoding', dest='hub_encoding', default='cp1251')
+    parser.add_option('--speed', dest='speed', default='1000',
+            help='Connection speed to report to hub. Purely informational.')
+    parser.add_option('--email', dest='email', default='',
+            help='Email address to report to hub. Optional.')
+    parser.add_option('--server', dest='server', default='192.168.80.1',
+            help='Hub\'s address')
+    parser.add_option('--port', dest='port', default='411',
+            help='Hub\'s port')
+    parser.add_option('--recheck', dest='recheck_time', default='43200',
+            help='Time to wait in seconds before attempting a redownload after a successful filelist download')
+    parser.add_option('--recheck-after-failure', dest='recheck_time_after_failure', default='120',
+            help='Time to wait in seconds before attempting a redownload after an unsuccessful download')
+    parser.add_option('--dir', dest='datadir', default='/tmp/dcindexbot',
+            help='Directory to hold downloaded filelists and users list')
+    parser.add_option('--hub-encoding', dest='hub_encoding', default='cp1251',
+            help='Encoding in which nicknames and chats are encoded at the hub')
     (options, args) = parser.parse_args()
 
     bot = Bot(options)
