@@ -6,6 +6,7 @@
 \usepackage{graphicx}
 \usepackage{cmap}
 \usepackage{amsmath}
+\usepackage{color}
 \usepackage{amssymb}
 %\usepackage{pdfpages}
 %\usepackage{tikz}
@@ -32,7 +33,7 @@
 \maketitle
 
 \subsection*{Задача 1}
-Да. $a(x) = \mbox{sign}\left(-3 + [x_1 > 0] + [x_1 < 1] + [x_2 > 0] + [x_2 < 1]\right)$.
+Да. $a(x) = \mbox{sign}\left(-3 + \mbox{sign}(x_1 > 0) + \mbox{sign}(x_1 < 1) + \mbox{sign}(x_2 > 0) + \mbox{sign}(x_2 < 1)\right)$.
 
 \subsection*{Задача 2}
 Нет. Нельзя, например, описать $\{ (x, y)\,|\,xy > 0 \}$ (т.е. решить XOR), что можно показать
@@ -58,31 +59,67 @@ $$
 $f(1) > -g(1) > f(-1) > -g(-1) > f(1)$, что неверно.
 
 
+\newpage
+\subsection*{Задача 3}
+
+\textbf{3.1.} Первый базовый классификатор: $h_1(x, y) = \mbox{sign}(x - 2.5)$. Он положителен при $x > 2.5$, отрицателен при $x < 2.5$.
+
+\begin{center}\textcolor[gray]{0.8}{Здесь должен быть рисунок, но у меня нет времени на его оформление.}\end{center}
+
+Неправильно классифицировался один пример из 9, поэтому
+$$\varepsilon_1 = \frac 19, \quad \alpha_1 = \frac12 \log \frac{1-\varepsilon_1}{\varepsilon_1} = \log \sqrt{8} \approx 1.03972$$
+
+\textbf{3.2.} Ненормализованные веса: у неправильно классифицированного объекта $(4, 0.5)$ вес $\frac 19 e^{\alpha_1} = \frac 19 \sqrt{8}$,
+у остальных веса $\frac 19 e^{-\alpha_1} = \frac 19 \frac{1}{\sqrt{8}}$. Сумма весов: $\frac 19 \left( 8 \frac{1}{\sqrt{8}} + \sqrt{8}\right) = \frac 29 \sqrt{8}$.
+Веса после нормализации: у $(4, 0.5)$ вес $\frac 12$, у остальных: $\frac{1}{16}$.
+
+\textbf{3.3.} Равно сумме весов неправильно классифицированных объектов, то есть весу одного объекта~$(4, 0.5)$: $\frac{1}{2}$.
+
+\textbf{3.4.} Столь большой вес $(4, 0.5)$ накладывает ограничие на новый базовый классификатор -- он должен обязательно правильно
+классифицировать этот объект, иначе его взвешенная ошибка не будет меньше $\frac 12$. Из таких классификаторов взвешенную ошибку
+минимизирует $\mbox{sign}(4.5 - x)$. Он положителен при $x < 4.5$ и отрицателен при $x > 4.5$.
+
+\textbf{3.5.} Нет, так как при любых коэффициентах функция $\alpha_1 \cdot \mbox{sign}(x - 2.5) + \alpha_2 \cdot \mbox{sign}(4.5 - x)$ будет
+постоянной на интервале $(2.5, 4.5)$, а там находятся обучающие примеры разных классов.
+
 
 \newpage
 \subsection*{Задача 4}
 
-Веса пересчитываются по формуле:
+После обучения $t$-го базового классификатора $h_t$ с весами объектов $w^{(t)}_i$ (нормализованные так,
+чтобы их сумма была равна единице), веса в алгоритме AdaBoost пересчитываются по следующей формуле:
 
-$$ w_{t+1}(i) = 
-\begin{cases}
-  \frac{w_{t}(i)}{2 \epsilon_t}, & y_i = h_t(x_i), \\
-  \frac{w_{t}(i)}{2 (1 - \epsilon_t)}, & y_i \ne h_t(x_i). \\
-\end{cases}
-$$
-$$
-\epsilon_t = \sum_{i=1}^n w_t(i) [y_i \ne h_t(x_i)]
-$$
+$$ w^{(t+1)}_i = Z_t w^{(t)}_i e^{-y_i \alpha_t h_t(x_i)}, $$
 
-Значение функционала взвешенной ошибки для базового алгоритма $t$-го шага, взятое с весами $w_{t+1}$, равно:
+где $Z_t$ -- множитель для нормализации новых весов:
 
-$$
-\sum_{i=1}^n w_{t+1}(i) [y_i \ne h_t(x_i)] =
-\sum_{i=1}^n \frac{  w_{t}(i) [y_i \ne h_t(x_i)]}{2(1 - \epsilon_t)} =
-\frac{ \epsilon_t }{2(1 - \epsilon_t)},
-$$
-где $\epsilon_t$ -- значение этого же функционала при весах $w_t$.
-Таким образом, значение функционала уменьшается, если $\epsilon_t > 0.5$.
+\begin{align*}
+ \frac{1}{Z_t}
+    &= \sum_i w^{(t)}_i e^{-y_i \alpha_t h_t(x_i)}
+    = \sum_{i: y_i = h_t(x_i)} w^{(t)}_i e^{-\alpha_t} +
+      \sum_{i: y_i \ne h_t(x_i)} w^{(t)}_i e^{\alpha_t} \\
+    &= (1 - \varepsilon_t) e^{-\alpha_t} + \varepsilon_t e^{\alpha_t},
+\end{align*}
+
+а $\varepsilon_t$ -- функционал взвешенной ошибки классификатора $h_t$ с весами $w^{(t)}_i$:
+
+$$ \varepsilon_t = \sum_{i: y_i \ne h_t(x_i)} w^{(t)}_i. $$
+
+Значение функционала взвешенной ошибки для алгоритма $h_t$ с новыми, пересчитанными и нормализованными весами $w^{(t+1)}_i$:
+
+\begin{align*}
+\varepsilon_t'
+  &= \sum_{i: y_i \ne h_t(x_i)} w^{(t+1)}_i = \sum_{i: y_i \ne h_t(x_i)} Z_t w^{(t)}_i e^{-y_i \alpha_t h_t(x_i)}\\
+  &= Z_t \sum_{i: y_i \ne h_t(x_i)} w^{(t)}_i e^{\alpha_t} = Z_t \varepsilon_t e^{\alpha_t} =
+     \frac{\varepsilon_t e^{\alpha_t}}{(1 - \varepsilon_t) e^{-\alpha_t} + \varepsilon_t e^{\alpha_t}} \\
+  &= \frac{1}{1 + \frac{1 - \varepsilon_t}{\varepsilon_t} e^{-2 \alpha_t}} = \frac{1}{1 + 1} = \frac{1}{2},
+\end{align*}
+
+так как
+$$ \alpha_t = \frac 12 \log \frac{1 - \varepsilon_t}{\varepsilon_t}, \quad
+e^{-2 \alpha_t} = e^{-2 \cdot \frac 12 \log\frac{1-\varepsilon_t}{\varepsilon_t}} = \frac{\varepsilon_t}{1 - \varepsilon_t}. $$
+
+\textbf{Ответ:} $\displaystyle \frac{1}{2}$.
 
 \newpage
 \subsection*{Задача 5}
