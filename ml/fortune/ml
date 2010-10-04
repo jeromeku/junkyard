@@ -7,7 +7,10 @@ tasks in T, as measured by P, improves with experience E.
 		-- Tom Mitchell, 1997
 %
 There's no data like more data.
-		-- Folklore
+		-- Robert Mercer, 1985
+%
+Whenever I fire a linguist our system performance improves.
+		-- Frederick Jelinek, 1988
 %
 if you torture the data long enough, it will confess.
 		-- Ronald Coase
@@ -16,7 +19,7 @@ Data mining is nothing else than torturing the data until it confesses,
 and if you torture it enough, you can get it to confess to anything.
 %
 Essentially, all models are wrong, but some are useful.
-		-- Box & Draper (1987)
+		-- Box & Draper, 1987
 %
 Statistics are like a bikini. What they reveal is suggestive,
 but what they conceal is vital.
@@ -25,4 +28,7 @@ but what they conceal is vital.
 We're drowning in information and starving for knowledge.
 %
 A little inaccuracy sometimes saves tons of explanation.
-		-- H. H. Munro (1924)
+		-- H. H. Munro, 1924
+%
+I keep saying that the sexy job in the next ten years will be statisticians.
+		-- Hal Varian, Google's Chief Economist, 2009
