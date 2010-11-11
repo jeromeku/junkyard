@@ -1,7 +1,8 @@
 // Counts number of ways to color vertices of n-by-n grid graph with q colors.
 //
-// As an option, counts those colorings subject to the restriction that vertices (i,j)
-// and (k,l) have the same, fixed color (http://forums.topcoder.com/?module=Thread&threadID=692834)
+// As an option (COLLAPSE_PAIR define), counts those colorings subject
+// to the restriction that vertices (i,j) and (k,l) have the same,
+// fixed color (http://forums.topcoder.com/?module=Thread&threadID=692834)
 //
 // Prints a hexadecimal number.
 //
@@ -14,13 +15,17 @@
 #include <cstring>
 #include <algorithm>
 #include <string>
-#include <map>
 #include <vector>
 using namespace std;
 
+//#define COLLAPSE_PAIR
+
 struct ParamsStruct {
-    int N, Q, i, j, k, l;
     bool Quiet;
+    int N, Q;
+#ifdef COLLAPSE_PAIR
+    int i, j, k, l;
+#endif
 } Params;
 
 string StringPrintf(const char *format, ...) {
@@ -35,9 +40,10 @@ string StringPrintf(const char *format, ...) {
 }
 
 // An array of 4-bit integers which represent equal subsets of colors in a row of N cells.
-// In canonical representation:
-// Value 0 always refers to color 0.
-// Value i for i>0 represents i-th used non-zero color value when scanning the row from left to right.
+//
+// In canonical representation
+// Value i for i>=0 (i>0 if COLLAPSE_PAIR is enabled) represents i-th used non-zero color value when scanning the row from left to right.
+// Value 0 always refers to color 0 if COLLAPSE_PAIR is enabled
 struct Config {
     uint64_t repr;
 
@@ -58,9 +64,12 @@ struct Config {
         static unsigned char mp[16];
         memset(mp, 0xff, sizeof(mp));
 
-        mp[0] = 0;
-
+#ifdef COLLAPSE_PAIR
         int next = 1;
+        mp[0] = 0;
+#else
+        int next = 0;
+#endif
 
         for (int i = 0; i < Params.N; i++) {
             int x = Get(i);
@@ -72,7 +81,11 @@ struct Config {
 
     // verifies canonicity. checks that no two colors are adjacent, except possibly at brk-1 and brk
     void Verify(int brk) const {
+#ifdef COLLAPSE_PAIR
         int m = 0;
+#else
+        int m = -1;
+#endif
         for (int i = 0; i < Params.N; i++) {
             if (Get(i) > m) {
                 assert(Get(i) == m + 1);
@@ -108,7 +121,7 @@ struct Config {
     bool operator <(Config other) const {
         return repr < other.repr;
     }
-    
+
     bool operator ==(Config other) const {
         return repr == other.repr;
     }
@@ -187,7 +200,7 @@ size_t GenConfigs(Config c, int k, int max_used, int break_idx, bool dry_run) {
         for (int x = 0; x < Params.Q && x <= max_used + 1; x++) {
             if (k > 0 && x == c.Get(k-1)) {
                 if (break_idx == -1) {
-                    // allow at most one place where two colors are adjacent
+                    // allow at most one place where two same colors are adjacent
                     c.Set(k, x);
                     res += GenConfigs(c, k+1, max(max_used, x), k, dry_run);
                 }
@@ -206,31 +219,36 @@ inline size_t GetConfigIndex(Config c) {
     return it - Configs.begin();
 }
 
-void DoDPStep(int y, int x, int configIndex, bool mustBeZero) {
+template<bool zeroY, bool zeroX, bool mustBeZero>
+inline void DoDPStep(/*int y,*/ int x, int configIndex) {
     Config cfg = Configs[configIndex];
     const Entry &cur_value = CurValues[configIndex];  // number of ways to color until (y,x) cell and end up with cfg
 
     if (cur_value.IsZero())
         return;
 
-    int max_used = 0;
-    if (y == 0) {
+    int max_used = -1;
+    if (mustBeZero)
+        max_used = 0;
+
+    if (zeroY) {
         for (int i = 0; i < x; i++)
             max_used = max(max_used, cfg.Get(i));
     } else {
         for (int i = 0; i < Params.N; i++)
             max_used = max(max_used, cfg.Get(i));
     }
+
     assert(max_used < Params.Q);
 
     for (int color = 0; color <= max_used && color < Params.Q; color++) {
-        if (y > 0 && color == cfg.Get(x)) continue;
-        if (x > 0 && color == cfg.Get(x-1)) continue;
+        if (!zeroY && color == cfg.Get(x)) continue;
+        if (!zeroX && color == cfg.Get(x-1)) continue;
 
         Config new_cfg = cfg;
         new_cfg.Set(x, color);
 
-        if (y == 0)
+        if (zeroY)
             new_cfg.Canonize2(x+1);
         else
             new_cfg.Canonize();
@@ -245,14 +263,29 @@ void DoDPStep(int y, int x, int configIndex, bool mustBeZero) {
     if (max_used + 1 < Params.Q) {
         Config new_cfg = cfg;
         new_cfg.Set(x, max_used + 1);
-        if (y == 0)
-            new_cfg.Canonize2(x+1);
+
+        if (zeroY)
+            new_cfg.Canonize2((zeroX ? 0 : x) + 1);
         else
             new_cfg.Canonize();
 
         size_t new_idx = GetConfigIndex(new_cfg);
         NextValues[new_idx].PolyMulAdd(max_used + 1, cur_value);   // += (Params.Q - (max_used+1)) * cur_value
     }
+}
+
+// Templatizing frequent branches saves a few percents of CPU time (~ 4%)
+void DoDPPhase(size_t cnt, int y, int x, bool mustBeZero) {
+#define GO(a,b,c) if ((y==0)==a && (x==0)==b && mustBeZero==c) { for (size_t i = 0; i < cnt; i++) DoDPStep<a,b,c>(x, i); return; }
+    GO(0,0,0);
+    GO(0,1,0);
+    GO(1,0,0);
+    GO(1,1,0);
+    GO(0,0,1);
+    GO(0,1,1);
+    GO(1,0,1);
+    GO(1,1,1);
+#undef GO
 }
 
 int main(int argc, char **argv)
@@ -263,34 +296,59 @@ int main(int argc, char **argv)
         argc--;
     }
 
-    if (argc != 3 && argc != 7) {
+#ifdef COLLAPSE_PAIR
+    if (argc != 7) {
+#else
+    if (argc != 3) {
+#endif
         printf(
-          "Usage:\n"
-          "  %s [-q] N Q  -- counts q-colorings of n-by-n grid graph\n"
-          "  %s [-q] N Q i j k l  -- counts colorings with the restriction that (i,j) and (k,l) have the same fixed color.\n"
-          "  -q -- be quiet\n",
-          argv[0], argv[0]);
+#ifdef COLLAPSE_PAIR
+            "Usage: %s [-q] N Q i j k l\n"
+            "Counts q-colorings of n-by-n grid graph subject to the restriction that\n"
+            "vertices (i,j) and (k,l) have the same, fixed color. Indexes are 1-based.\n"
+#else
+            "Usage: %s [-q] N Q\n"
+            "Counts q-colorings of n-by-n grid graph.\n"
+#endif
+            "Option -q: be quiet.\n",
+            argv[0]
+        );
         return 1;
     }
 
     Params.N = atoi(argv[1]);
     Params.Q = atoi(argv[2]);
-    Params.i = argc == 7 ? atoi(argv[3]) : -1;
-    Params.j = argc == 7 ? atoi(argv[4]) : -1;
-    Params.k = argc == 7 ? atoi(argv[5]) : -1;
-    Params.l = argc == 7 ? atoi(argv[6]) : -1;
 
-    if (Params.N >= 16 || Params.Q < 1) {  // only 16 integers fit in Config class
+#ifdef COLLAPSE_PAIR
+    Params.i = atoi(argv[3]) - 1;
+    Params.j = atoi(argv[4]) - 1;
+    Params.k = atoi(argv[5]) - 1;
+    Params.l = atoi(argv[6]) - 1;
+#define CHK(x) if (Params.x < 1 || Params.x > Params.N) { fprintf(stderr, #x " must be in range 1..N\n"); return 1; }
+    CHK(i); CHK(j); CHK(k); CHK(l);
+#undef CHK
+#endif
+
+    if (Params.N >= 16 || Params.Q <= 1) {  // only 16 integers fit in Config class
         fprintf(stderr, "Invalid or unsupported N or Q\n");
         return 1;
     }
 
     if (log((double)(Params.Q)) * Params.N * Params.N / log(2.0) + 10 > sizeof(Entry)*8) {
-        fprintf(stderr, "Result is potentially too large, aborting.\n");
+        fprintf(stderr, "Result is potentially too large, aborting. Please recompile with a larger Entry data type.\n");
         return 1;
     }
 
-    size_t cnt = GenConfigs(Config(), 0, 0, -1, true);
+#ifdef COLLAPSE_PAIR
+    // Allow GenConfigs to immediately start using color 1, without having to use color 0 first.
+    // This is needed because we want to keep track of the subset that has color 0, but don't need to
+    // distinguish between other colors.
+    int max_used = 0;
+#else
+    int max_used = -1;
+#endif
+
+    size_t cnt = GenConfigs(Config(), 0, max_used, -1, true);
     if (!Params.Quiet) {
         fprintf(stderr,
             "Found %lld configurations. Memory requirements: %.1lf Mb (using %d-byte entries)\n",
@@ -304,7 +362,7 @@ int main(int argc, char **argv)
     NextValues = new Entry[cnt];
 
     Configs.reserve(cnt);
-    GenConfigs(Config::Zero(), 0, 0, -1, false);
+    GenConfigs(Config::Zero(), 0, max_used, -1, false);
     assert(Configs.size() == cnt);
     sort(Configs.begin(), Configs.end());
     assert(unique(Configs.begin(), Configs.end()) == Configs.end());
@@ -316,14 +374,17 @@ int main(int argc, char **argv)
         for (int x = 0; x < Params.N; x++) {
             memset(&NextValues[0], 0, sizeof(Entry) * cnt);
 
+#ifdef COLLAPSE_PAIR
             bool mustBeZero = (y == Params.i && x == Params.j) || (y == Params.k && x == Params.l);
-            for (size_t i = 0; i < cnt; i++)
-                DoDPStep(y, x, i, mustBeZero);
+#else
+            bool mustBeZero = false;
+#endif
+            DoDPPhase(cnt, y, x, mustBeZero);  // for (size_t i = 0; i < cnt; i++) DoDPStep(y, x, i, mustBeZero);
 
             swap(CurValues, NextValues);
 
             if (!Params.Quiet)
-                fprintf(stderr, "\r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y, x);
+                fprintf(stderr, "\r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y+1, x+1);
         }
     }
 
