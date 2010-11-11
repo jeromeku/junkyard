@@ -1,7 +1,7 @@
 // Counts number of ways to color vertices of n-by-n grid graph with q colors.
 //
-// As an option, count those colorings subject to the restriction that vertices (i,j)
-// and (k,l) vertices have the same, fixed color (http://forums.topcoder.com/?module=Thread&threadID=692834)
+// As an option, counts those colorings subject to the restriction that vertices (i,j)
+// and (k,l) have the same, fixed color (http://forums.topcoder.com/?module=Thread&threadID=692834)
 //
 // Prints a hexadecimal number.
 //
@@ -20,6 +20,7 @@ using namespace std;
 
 struct ParamsStruct {
     int N, Q, i, j, k, l;
+    bool Quiet;
 } Params;
 
 string StringPrintf(const char *format, ...) {
@@ -256,11 +257,18 @@ void DoDPStep(int y, int x, int configIndex, bool mustBeZero) {
 
 int main(int argc, char **argv)
 {
+    Params.Quiet = (argc >= 2 && strcmp(argv[1], "-q") == 0);
+    if (Params.Quiet) {
+        argv++;
+        argc--;
+    }
+
     if (argc != 3 && argc != 7) {
         printf(
-            "Usage:\n"
-          "  %s N Q  -- counts q-colorings of n-by-n grid graph\n"
-          "  %s N Q i j k l  -- counts colorings with the restriction that (i,j) and (k,l) have the same fixed color.\n",
+          "Usage:\n"
+          "  %s [-q] N Q  -- counts q-colorings of n-by-n grid graph\n"
+          "  %s [-q] N Q i j k l  -- counts colorings with the restriction that (i,j) and (k,l) have the same fixed color.\n"
+          "  -q -- be quiet\n",
           argv[0], argv[0]);
         return 1;
     }
@@ -273,22 +281,24 @@ int main(int argc, char **argv)
     Params.l = argc == 7 ? atoi(argv[6]) : -1;
 
     if (Params.N >= 16 || Params.Q < 1) {  // only 16 integers fit in Config class
-        printf("Invalid or unsupported N or Q\n");
+        fprintf(stderr, "Invalid or unsupported N or Q\n");
         return 1;
     }
 
     if (log((double)(Params.Q)) * Params.N * Params.N / log(2.0) + 10 > sizeof(Entry)*8) {
-        printf("Result is potentially too large, aborting.\n");
+        fprintf(stderr, "Result is potentially too large, aborting.\n");
         return 1;
     }
 
     size_t cnt = GenConfigs(Config(), 0, 0, -1, true);
-    fprintf(stderr,
-        "Found %lld configurations. Memory requirements: %.1lf Mb (using %d-byte entries)\n",
-        (long long)cnt,
-        cnt / 1048576.0 * (2 * sizeof(Entry) + sizeof(Config)),
-        (int)sizeof(Entry)
-    );
+    if (!Params.Quiet) {
+        fprintf(stderr,
+            "Found %lld configurations. Memory requirements: %.1lf Mb (using %d-byte entries)\n",
+            (long long)cnt,
+            cnt / 1048576.0 * (2 * sizeof(Entry) + sizeof(Config)),
+            (int)sizeof(Entry)
+        );
+    }
 
     CurValues = new Entry[cnt];
     NextValues = new Entry[cnt];
@@ -312,10 +322,13 @@ int main(int argc, char **argv)
 
             swap(CurValues, NextValues);
 
-            fprintf(stderr, "\r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y, x);
+            if (!Params.Quiet)
+                fprintf(stderr, "\r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y, x);
         }
     }
-    fprintf(stderr, "\n");
+
+    if (!Params.Quiet)
+        fprintf(stderr, "\n");
 
     // Now we have CurValues[i] = number of ways to color the grid and end up with i-th config in the bottom row.
     // Answer is the sum of all that numbers.
