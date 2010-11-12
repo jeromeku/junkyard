@@ -18,8 +18,6 @@
 #include <vector>
 using namespace std;
 
-//#define COLLAPSE_PAIR
-
 struct ParamsStruct {
     bool Quiet;
     int N, Q;
@@ -42,7 +40,7 @@ string StringPrintf(const char *format, ...) {
 // An array of 4-bit integers which represent equal subsets of colors in a row of N cells.
 //
 // In canonical representation
-// Value i for i>=0 (i>0 if COLLAPSE_PAIR is enabled) represents i-th used non-zero color value when scanning the row from left to right.
+// Value i for i>=0 (i>0 if COLLAPSE_PAIR is enabled) represents i+1-st (i-th) used (non-zero) color value when scanning the row from left to right.
 // Value 0 always refers to color 0 if COLLAPSE_PAIR is enabled
 struct Config {
     uint64_t repr;
@@ -79,7 +77,7 @@ struct Config {
         }
     }
 
-    // verifies canonicity. checks that no two colors are adjacent, except possibly at brk-1 and brk
+    // Verifies canonicity. Checks that no two same colors are adjacent, except possibly at brk-1 and brk
     void Verify(int brk) const {
 #ifdef COLLAPSE_PAIR
         int m = 0;
@@ -133,10 +131,11 @@ struct Config {
     }
 };
 
-// Represents values of a univariate polynomial at a single global point x=Params.Q
+// Represents values of a univariate polynomial at a single global point x=Params.Q.
+// A 32*N-bit bignum.
 template<int N>
 class NumEntry {
-    uint32_t a[N];  // least-endian
+    uint32_t a[N];  // little-endian
 
   public:
     void Set(int num) {
@@ -166,19 +165,19 @@ class NumEntry {
             a[i] = (uint32_t)(acc += a[i] + (uint64_t)e.a[i]);
             acc >>= 32;
         }
-        assert((a[N-1] >> 25) == 0);
+        assert(acc == 0);
     }
 
-    // adds (x-c)*e
+    // Adds (x-c)*e. Assumes c < Params.Q
     void PolyMulAdd(uint32_t c, const NumEntry &e) {
-        c = Params.Q - c;  // >= 0
+        c = Params.Q - c;
 
         uint64_t acc = 0;
         for (int i = 0; i < N; i++) {
             a[i] = (uint32_t)(acc += a[i] + c * (uint64_t)e.a[i]);
             acc >>= 32;
         }
-        assert((a[N-1] >> 25) == 0);
+        assert(acc == 0);
     }
 };
 
@@ -213,6 +212,7 @@ size_t GenConfigs(Config c, int k, int max_used, int break_idx, bool dry_run) {
     }
 }
 
+// TODO: hash table
 inline size_t GetConfigIndex(Config c) {
     vector<Config>::iterator it = lower_bound(Configs.begin(), Configs.end(), c);
     assert(it != Configs.end() && *it == c);
@@ -220,7 +220,7 @@ inline size_t GetConfigIndex(Config c) {
 }
 
 template<bool zeroY, bool zeroX, bool mustBeZero>
-inline void DoDPStep(int x, int configIndex) {
+inline void DoDPStep(/*int y,*/ int x, int configIndex) {
     Config cfg = Configs[configIndex];
     const Entry &cur_value = CurValues[configIndex];  // number of ways to color until (y,x) cell and end up with cfg
 
