@@ -32,7 +32,6 @@ def check(n, q, verbosity=1):
         print 'Golden: %s' % golden
         sys.exit(1)
 
-
 def check_ijkl(n, q, ijkl, golden, verbosity=1):
     if verbosity >= 1:
         print 'Checking n=%d q=%d ijkl=%s' % (n, q, ijkl)
@@ -56,6 +55,7 @@ def main():
 
     check_ijkl(10, 2, '1 1 1 1', 1)
     check_ijkl(10, 2, '1 1 2 2', 1)
+    check_ijkl(3, 4, '1 1 3 3', 150)
     check_ijkl(10, 2, '1 1 1 2', 0)
     check_ijkl(8, 8, '1 1 1 2', 0)
 
