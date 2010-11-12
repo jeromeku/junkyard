@@ -324,7 +324,7 @@ int main(int argc, char **argv)
     Params.j = atoi(argv[4]) - 1;
     Params.k = atoi(argv[5]) - 1;
     Params.l = atoi(argv[6]) - 1;
-#define CHK(x) if (Params.x < 1 || Params.x > Params.N) { fprintf(stderr, #x " must be in range 1..N\n"); return 1; }
+#define CHK(x) if (Params.x < 0 || Params.x >= Params.N) { fprintf(stderr, #x " must be in range 1..N\n"); return 1; }
     CHK(i); CHK(j); CHK(k); CHK(l);
 #undef CHK
 #endif
