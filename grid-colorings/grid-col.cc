@@ -384,7 +384,7 @@ int main(int argc, char **argv)
             swap(CurValues, NextValues);
 
             if (!Params.Quiet)
-                fprintf(stderr, "\r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y+1, x+1);
+                fprintf(stderr, " \r%.0lf%% completed (last completed cell: y=%d x=%d)", (y*Params.N+x+1)*100.0/Params.N/Params.N, y+1, x+1);
         }
     }
 
