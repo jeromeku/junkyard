@@ -53,10 +53,9 @@ def main():
         print 'OK'
         return
 
-    check_ijkl(10, 2, '1 1 1 1', 1)
-    check_ijkl(10, 2, '1 1 2 2', 1)
-    check_ijkl(3, 4, '1 1 3 3', 150)
-    check_ijkl(10, 2, '1 1 1 2', 0)
+    check_ijkl(10, 2, '1 1 10 10', 1)
+    check_ijkl(10, 2, '2 3 6 8', 0)
+    check_ijkl(3, 3, '1 1 3 3', 44)  # counted by brute force solution
     check_ijkl(8, 8, '1 1 1 2', 0)
 
     for n in range(3, 9):

@@ -154,7 +154,7 @@ class NumEntry {
     string ToString() const {
         int i = N - 1;
         while (i > 0 && a[i] == 0) i--;
-        string res = StringPrintf("0x%.X", a[i]);
+        string res = StringPrintf("0x%X", a[i]);
         while (i-- > 0)
             res += StringPrintf("%.8X", a[i]);
         return res;
@@ -220,7 +220,7 @@ inline size_t GetConfigIndex(Config c) {
 }
 
 template<bool zeroY, bool zeroX, bool mustBeZero>
-inline void DoDPStep(/*int y,*/ int x, int configIndex) {
+inline void DoDPStep(int x, int configIndex) {
     Config cfg = Configs[configIndex];
     const Entry &cur_value = CurValues[configIndex];  // number of ways to color until (y,x) cell and end up with cfg
 
@@ -241,7 +241,8 @@ inline void DoDPStep(/*int y,*/ int x, int configIndex) {
 
     assert(max_used < Params.Q);
 
-    for (int color = 0; color <= max_used && color < Params.Q; color++) {
+    int color = 0;
+    for (; mustBeZero ? (color == 0) : (color <= max_used && color < Params.Q); color++) {
         if (!zeroY && color == cfg.Get(x)) continue;
         if (!zeroX && color == cfg.Get(x-1)) continue;
 
@@ -253,16 +254,15 @@ inline void DoDPStep(/*int y,*/ int x, int configIndex) {
         else
             new_cfg.Canonize();
 
+        //printf("y=%d x=%d color=%d mustBeZero=%d cfg=%s -> %s\n", y, x, color, mustBeZero, cfg.ToString().c_str(), new_cfg.ToString().c_str());
+
         size_t new_idx = GetConfigIndex(new_cfg);
         NextValues[new_idx].Add(cur_value);
-
-        if (mustBeZero)
-            return;
     }
 
-    if (max_used + 1 < Params.Q) {
+    if (!mustBeZero && color < Params.Q) {
         Config new_cfg = cfg;
-        new_cfg.Set(x, max_used + 1);
+        new_cfg.Set(x, color);
 
         if (zeroY)
             new_cfg.Canonize2((zeroX ? 0 : x) + 1);
@@ -270,7 +270,7 @@ inline void DoDPStep(/*int y,*/ int x, int configIndex) {
             new_cfg.Canonize();
 
         size_t new_idx = GetConfigIndex(new_cfg);
-        NextValues[new_idx].PolyMulAdd(max_used + 1, cur_value);   // += (Params.Q - (max_used+1)) * cur_value
+        NextValues[new_idx].PolyMulAdd(color, cur_value);   // += (Params.Q - color) * cur_value
     }
 }
 
