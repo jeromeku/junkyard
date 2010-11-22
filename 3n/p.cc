@@ -136,7 +136,7 @@ int main(int argc, char **argv)
     assert(first_n <= last_n);
     assert(min_zeroes >= 1);
 
-    int max_digits = (int)(log(3.0)*last_n/log(10.0)) + 100;
+    int max_digits = (int)(log(3.0)*last_n/log(10.0)) + 30;
     max_digits = (max_digits | 15) + 1;
     max_size = max_digits / 2;
     bcd_digits = new uchar[max_size];

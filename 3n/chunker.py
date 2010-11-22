@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # On Xeon E5620 @ 2.40 GHz chunk size 10^10 is about 15.5-15.6s
-# Scales linearly: 5 min - chunk size ~384615384614
+# Scales linearly: 10 min - chunk size ~384615384614
 import sys
 
 def main():
