@@ -1,0 +1,6 @@
+http://zealint.ru/three-dimer-and-statistics-comp.html
+
+p.cc           the main program. Usage: ./p <a> <b>. Crunches numbers from a to b, inclusive.
+pow.cc         compute a^b
+summarize.py   parses concatenated output of several runs of the main program, prints the results tables, computes a few statistics
+chunker.py     helper script to find intervals [a, b] which take roughly the same processing work
