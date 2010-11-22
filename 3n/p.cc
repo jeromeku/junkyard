@@ -132,11 +132,12 @@ int main(int argc, char **argv)
 
     int first_n = atoi(argv[1]);
     int last_n = atoi(argv[2]);
-    int min_zeroes = argc == 4 ? atoi(argv[3]) : 100;
+    int min_zeroes = argc == 4 ? atoi(argv[3]) : 30;
+
     assert(first_n <= last_n);
     assert(min_zeroes >= 1);
 
-    int max_digits = (int)(log(3.0)*last_n/log(10.0)) + 30;
+    int max_digits = (int)(log(3.0)*last_n/log(10.0)) + 100;
     max_digits = (max_digits | 15) + 1;
     max_size = max_digits / 2;
     bcd_digits = new uchar[max_size];
