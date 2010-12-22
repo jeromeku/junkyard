@@ -5206,6 +5206,7 @@ sub gs_fetch_loop_common {
 	my $ra_url = $self->{url};
 	my $find_trailing_edge;
 	while (1) {
+		print "Checking r$min..r$max\n";
 		my %revs;
 		my $err;
 		my $err_handler = $SVN::Error::handler;
@@ -5254,10 +5255,13 @@ sub gs_fetch_loop_common {
 
 			foreach my $gs ($self->match_globs(\%exists, $paths,
 			                                   $globs, $r)) {
-				if ($gs->rev_map_max >= $r) {
+				if ($gs->rev_map_max_norebuild >= $r) {
 					next;
 				}
 				next unless $gs->match_paths($paths, $r);
+				if ($gs->rev_map_max >= $r) {
+					next;
+				}
 				$gs->{logged_rev_props} = $logged;
 				if (my $last_commit = $gs->last_commit) {
 					$gs->assert_index_clean($last_commit);
@@ -5284,6 +5288,7 @@ sub gs_fetch_loop_common {
 		# pre-fill the .rev_db since it'll eventually get filled in
 		# with '0' x40 if something new gets committed
 		foreach my $gs (@$gsv) {
+			next if $gs->rev_map_max_norebuild >= $max;
 			next if $gs->rev_map_max >= $max;
 			next if defined $gs->rev_map_get($max);
 			$gs->rev_map_set($max, 0 x40);
