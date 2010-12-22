@@ -5162,11 +5162,15 @@ sub gs_do_switch {
 }
 
 sub longest_common_path {
-	my ($gsv, $globs) = @_;
+	my ($gsv, $globs, $max_rev_needed, %cached_max_rev) = @_;
 	my %common;
 	my $common_max = scalar @$gsv;
 
 	foreach my $gs (@$gsv) {
+		if ($cached_max_rev{$gs} > $max_rev_needed) {
+			$common_max--;
+			next;
+		}
 		my @tmp = split m#/#, $gs->{path};
 		my $p = '';
 		foreach (@tmp) {
@@ -5202,14 +5206,20 @@ sub gs_fetch_loop_common {
 	return if ($base > $head);
 	my $inc = $_log_window_size;
 	my ($min, $max) = ($base, $head < $base + $inc ? $head : $base + $inc);
-	my $longest_path = longest_common_path($gsv, $globs);
 	my $ra_url = $self->{url};
 	my $find_trailing_edge;
+	my %cached_max_rev;
+
+	foreach my $gs (@$gsv) {
+		$cached_max_rev{$gs} = $gs->rev_map_max;
+	}
+
 	while (1) {
-		print "Checking r$min..r$max\n";
+		my $longest_path = longest_common_path($gsv, $globs, $max, %cached_max_rev);
 		my %revs;
 		my $err;
 		my $err_handler = $SVN::Error::handler;
+		print "Checking $ra_url/$longest_path\@r$min..r$max\n";
 		$SVN::Error::handler = sub {
 			($err) = @_;
 			skip_unknown_revs($err);
@@ -5255,13 +5265,10 @@ sub gs_fetch_loop_common {
 
 			foreach my $gs ($self->match_globs(\%exists, $paths,
 			                                   $globs, $r)) {
-				if ($gs->rev_map_max_norebuild >= $r) {
+				if ($cached_max_rev{$gs} >= $r) {
 					next;
 				}
 				next unless $gs->match_paths($paths, $r);
-				if ($gs->rev_map_max >= $r) {
-					next;
-				}
 				$gs->{logged_rev_props} = $logged;
 				if (my $last_commit = $gs->last_commit) {
 					$gs->assert_index_clean($last_commit);
@@ -5271,6 +5278,7 @@ sub gs_fetch_loop_common {
 					$gs->do_git_commit($log_entry);
 				}
 				$INDEX_FILES{$gs->{index}} = 1;
+				$cached_max_rev{$gs} = $gs->rev_map_max;
 			}
 			foreach my $g (@$globs) {
 				my $k = "svn-remote.$g->{remote}." .
@@ -5292,6 +5300,7 @@ sub gs_fetch_loop_common {
 			next if $gs->rev_map_max >= $max;
 			next if defined $gs->rev_map_get($max);
 			$gs->rev_map_set($max, 0 x40);
+			$cached_max_rev{$gs} = $max;
 		}
 		foreach my $g (@$globs) {
 			my $k = "svn-remote.$g->{remote}.$g->{t}-maxRev";
