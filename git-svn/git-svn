@@ -3510,6 +3510,7 @@ sub rebuild {
 	my ($self) = @_;
 	my $map_path = $self->map_path;
 	my $partial = (-e $map_path && ! -z $map_path);
+	delete $self->{_rev_map_max_cached};
 	return unless ::verify_ref($self->refname.'^0');
 	if (!$partial && ($self->use_svm_props || $self->no_metadata)) {
 		my $rev_db = $self->rev_db_path;
@@ -3655,6 +3656,7 @@ sub rev_map_set {
 	my ($self, $rev, $commit, $update_ref, $uuid) = @_;
 	defined $commit or die "missing arg3\n";
 	length $commit == 40 or die "arg3 must be a full SHA1 hexsum\n";
+	delete $self->{_rev_map_max_cached};
 	my $db = $self->map_path($uuid);
 	my $db_lock = "$db.lock";
 	my $sig;
@@ -3714,7 +3716,16 @@ sub rev_map_max {
 	my ($self, $want_commit) = @_;
 	$self->rebuild;
 	my ($r, $c) = $self->rev_map_max_norebuild($want_commit);
+	$self->{_rev_map_max_cached} = $r;
 	$want_commit ? ($r, $c) : $r;
+}
+
+sub rev_map_max_cached {
+	my ($self) = @_;
+	if (!defined $self->{_rev_map_max_cached}) {
+		$self->rev_map_max;
+	}
+	$self->{_rev_map_max_cached};
 }
 
 sub rev_map_max_norebuild {
@@ -3746,6 +3757,7 @@ sub rev_map_max_norebuild {
 		}
 	}
 	close $fh or croak "close: $!";
+	$self->{_rev_map_max_cached} = $r;
 	$want_commit ? ($r, $c) : $r;
 }
 
@@ -5162,12 +5174,12 @@ sub gs_do_switch {
 }
 
 sub longest_common_path {
-	my ($gsv, $globs, $max_rev_needed, %cached_max_rev) = @_;
+	my ($gsv, $globs, $max_rev_needed) = @_;
 	my %common;
 	my $common_max = scalar @$gsv;
 
 	foreach my $gs (@$gsv) {
-		if ($cached_max_rev{$gs} > $max_rev_needed) {
+		if ($gs->rev_map_max_cached > $max_rev_needed) {
 			$common_max--;
 			next;
 		}
@@ -5208,18 +5220,13 @@ sub gs_fetch_loop_common {
 	my ($min, $max) = ($base, $head < $base + $inc ? $head : $base + $inc);
 	my $ra_url = $self->{url};
 	my $find_trailing_edge;
-	my %cached_max_rev;
-
-	foreach my $gs (@$gsv) {
-		$cached_max_rev{$gs} = $gs->rev_map_max;
-	}
 
 	while (1) {
-		my $longest_path = longest_common_path($gsv, $globs, $max, %cached_max_rev);
+		my $longest_path = longest_common_path($gsv, $globs, $max);
 		my %revs;
 		my $err;
 		my $err_handler = $SVN::Error::handler;
-		print "Checking $ra_url/$longest_path\@r$min..r$max\n";
+		print "Checking $ra_url/$longest_path\@r$min..r$max\r\n";
 		$SVN::Error::handler = sub {
 			($err) = @_;
 			skip_unknown_revs($err);
@@ -5231,9 +5238,7 @@ sub gs_fetch_loop_common {
 		}
 		$self->get_log([$longest_path], $min, $max, 0, 1, 1,
 		               sub { $revs{$_[1]} = _cb(@_) });
-		if ($err) {
-			print "Checked through r$max\r";
-		} else {
+		if (!$err) {
 			$find_trailing_edge = 1;
 		}
 		if ($err and $find_trailing_edge) {
@@ -5265,9 +5270,7 @@ sub gs_fetch_loop_common {
 
 			foreach my $gs ($self->match_globs(\%exists, $paths,
 			                                   $globs, $r)) {
-				if ($cached_max_rev{$gs} >= $r) {
-					next;
-				}
+				next if $gs->rev_map_max_cached >= $r;
 				next unless $gs->match_paths($paths, $r);
 				$gs->{logged_rev_props} = $logged;
 				if (my $last_commit = $gs->last_commit) {
@@ -5278,7 +5281,6 @@ sub gs_fetch_loop_common {
 					$gs->do_git_commit($log_entry);
 				}
 				$INDEX_FILES{$gs->{index}} = 1;
-				$cached_max_rev{$gs} = $gs->rev_map_max;
 			}
 			foreach my $g (@$globs) {
 				my $k = "svn-remote.$g->{remote}." .
@@ -5296,11 +5298,9 @@ sub gs_fetch_loop_common {
 		# pre-fill the .rev_db since it'll eventually get filled in
 		# with '0' x40 if something new gets committed
 		foreach my $gs (@$gsv) {
-			next if $gs->rev_map_max_norebuild >= $max;
 			next if $gs->rev_map_max >= $max;
 			next if defined $gs->rev_map_get($max);
 			$gs->rev_map_set($max, 0 x40);
-			$cached_max_rev{$gs} = $max;
 		}
 		foreach my $g (@$globs) {
 			my $k = "svn-remote.$g->{remote}.$g->{t}-maxRev";
