@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+# This is a little Python script which allows you to easily download
+# .flv video files from http://videolectures.net, and resume unfinished
+# downloads. RTMPDump utility v1.5 or higher is required.
+import os, sys, re, urllib2
+
+def main(argv):
+    if len(argv) != 2 or '-h' in argv or '--help' in argv:
+        print 'Usage: get_videolectures http://videolectures.net/xxx/'
+        print
+        print 'Video file will be retrieved via RTMP protocol and saved',
+        print 'into an .flv file with automatically-determined name.',
+        print 'If file already exists, will try to resume download.'
+        print
+        print 'To download multi-part videos, try urls of the form http://videolectures.net/xxx/video/2/'
+        return
+
+    url = argv[1]
+
+    print 'Downloading %s' % url
+    html = urllib2.urlopen(url).read()
+
+    rtmpdump = './rtmpdump'
+    if not os.path.exists(rtmpdump):
+        if os.system('which rtmpdump >/dev/null 2>&1') != 0:
+            sys.stderr.write('rtmpdump not found')
+            return 1
+        rtmpdump = os.popen('which rtmpdump', 'r').read().strip()
+
+    def extract(regex):
+        matches = re.findall(regex, html)
+        if len(matches) == 1:
+            return matches[0]
+        else:
+            raise Exception("Parsing error: failed to match regular expression '%s'" % regex)
+
+    rtmp_base = extract(r'streamer: "([^"]+)"')
+    assert rtmp_base.startswith('rtmp://')
+    assert rtmp_base.endswith('/video')
+
+    rtmp_file = extract(r'file: "([^"]+)"')
+    assert rtmp_file.endswith('.flv')
+    rtmp_path = rtmp_file[:-4]
+    rtmp_url = rtmp_base + '/' + rtmp_file
+    print 'Media URL: %s' % rtmp_url
+
+    filename = rtmp_file.split('/')[-1]
+    print 'Filename: %s' % filename
+
+    args = [
+        rtmpdump,
+        '-r', rtmp_url,
+        '-t', rtmp_base,
+        '-a', 'video',   # suffix of rtmp_base
+        '-y', rtmp_path,
+        '-s', 'http://media.videolectures.net/jw-player/player.swf',
+        '-o', filename
+    ]
+
+    if os.path.exists(filename):
+        print 'Resuming download'
+        args += ['-e']
+
+    print 'Executing:'
+    print ' '.join(args)
+
+    ret = os.execv(rtmpdump, args)
+    if ret != 0:
+        print 'Download failed, rtmpdump return code: %d' % ret
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main(sys.argv)
