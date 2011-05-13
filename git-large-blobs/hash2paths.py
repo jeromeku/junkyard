@@ -21,15 +21,15 @@ def main():
 
     while len(stack) != 0:
         commit = stack.pop()
-        if unhex(commit.id) in visited_commits:
+        if unhex(commit.hexsha) in visited_commits:
             continue
-        visited_commits.add(unhex(commit.id))
+        visited_commits.add(unhex(commit.hexsha))
 
-        if commit.id in queries:
-            print '%s COMMIT' % (queries[commit.id])
+        if commit.hexsha in queries:
+            print '%s COMMIT' % (queries[commit.hexsha])
 
         for p in commit.parents:
-            if p.id not in visited_commits:
+            if p.hexsha not in visited_commits:
                 stack.append(p)
 
         if commit.tree in visited_trees:
@@ -38,24 +38,20 @@ def main():
         tree_stack = [ (commit.tree, '') ]
         while len(tree_stack) != 0:
             tree, path = tree_stack.pop()
-            visited_trees.add(unhex(tree.id))
+            visited_trees.add(unhex(tree.hexsha))
 
-            if tree.id in queries:
-                print '%s TREE %s:%s' % (queries[tree.id], commit.id, path)
+            if tree.hexsha in queries:
+                print '%s TREE %s:%s' % (queries[tree.hexsha], commit.hexsha, path)
 
-            tree_id = tree.id
-            try:
-                items = tree.items()
-            except:
-                sys.stderr.write('Failure while reading tree %d\n' % tree_id)
-                raise
+            tree_id = tree.hexsha
 
-            for filename, item in items:
-                if type(item) is git.Tree:
-                    if unhex(item.id) not in visited_trees:
-                        tree_stack.append((item, path + filename + '/'))
-                elif item.id in queries:
-                    print '%s BLOB %s:%s' % (queries[item.id], commit.id, path + filename)
+            for item in tree.blobs:
+                if item.hexsha in queries:
+                    print '%s BLOB %s:%s' % (queries[item.hexsha], commit.hexsha, (path + item.name).encode('utf-8'))
+
+            for item in tree.trees:
+                if unhex(item.hexsha) not in visited_trees:
+                    tree_stack.append((item, path + item.name + '/'))
 
 if __name__ == '__main__':
     main()
