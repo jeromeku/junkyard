@@ -3,7 +3,7 @@
 
 import sys, glob, struct
 
-THRESHOLD = 1048576  # 1 Mb
+THRESHOLD = 1048576/10  # 100 Kb
 
 def main():
     for filename in glob.glob('.git/objects/pack/*.idx'):
