@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+# Filters a git fast-export --no-data stream, removes
+# files and directories mentioned on the command line.
+#
+# Usage: git fast-export --no-data | fast-remove-filter <paths> | (cd <newrepo>; git fast-import)
+# where newrepo is a copy of the original repository with references (.git/refs/*, packed-refs) removed.
+#
+# This is a much faster alternative to git filter-branch --index-filter rm <paths>
+# on repositories with huge history
+
+import sys, os, re
+
+def unquote(s):
+    if s.startswith('"'):
+        assert s.endswith('"')
+        return s[1:-1].replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+    else:
+        return s
+
+def main():
+    paths = set(sys.argv[1:])
+    paths_dirs = [ s + '/' for s in paths ]
+    filemodify = re.compile('M [0-9]{6} [a-f0-9]{40} (.*)')
+
+    while True:
+        line = sys.stdin.readline()
+        if line == '':
+            break
+
+        if line.startswith('M '):
+            match = filemodify.match(line.rstrip('\n'))
+            assert match is not None, line
+            path = unquote(match.group(1))
+            if path in paths or any(path.startswith(s) for s in paths_dirs):
+                continue
+
+        assert not (line.startswith('C ') or line.startswith('R '))
+
+        sys.stdout.write(line)
+        if line.startswith('data'):
+            count = int(line[5:].strip())
+            data = sys.stdin.read(count)
+            assert len(data) == count
+            sys.stdout.write(data)
+
+if __name__ == '__main__':
+    main()
