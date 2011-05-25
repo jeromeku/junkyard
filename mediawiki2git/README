@@ -8,7 +8,7 @@ Create a repository with up to 1000 latest edits (max limit) to some wikipedia p
 
   git init .
   URL="http://en.wikipedia.org/w/index.php?title=Special:Export&pages=Support+vector+machine&limit=1000&action=submit"
-  curl -d "$URL" | mediawiki2git.py | git fast-import
+  curl -d "" "$URL" | mediawiki2git.py | git fast-import
   git reset --hard master
 
 Here, curl -d tells it to make a POST request which is currently required for fetching history.
