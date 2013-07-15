@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+# Takes as input a list of sha1 hashes, one per line, possibly with extra info after
+# the hash, which will be preserved verbatim in the output.
+# Parses git fast-export output, extracting paths at which mentioned blobs appeared in history.
+
+import sys, os
+
+def unquote(s):
+    if s.startswith('"'):
+        assert s.endswith('"')
+        return s[1:-1].replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+    else:
+        return s
+
+def main():
+    queries = dict()
+    for line in sys.stdin:
+        sha = line.split()[0]
+        assert len(sha) == 40
+        queries[sha] = line.rstrip('\r\n')
+
+    stream = os.popen('git fast-export --no-data --all', 'r')
+
+    while True:
+        line = stream.readline()
+        if line == '':
+            break
+
+        line = line.rstrip('\r\n')
+
+        if line.startswith('data'):
+            count = int(line[5:])
+            stream.read(count)
+            continue
+
+        if not line.startswith('M '):
+            continue
+
+        assert len(line) >= 51 and line[8] == ' ' and line[49] == ' '
+        sha = line[9:49]
+
+        if sha not in queries:
+            continue
+
+        print '%s\t%s' % (queries[sha], unquote(line[50:]))
+
+if __name__ == '__main__':
+    main()
