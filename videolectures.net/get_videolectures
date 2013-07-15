@@ -31,6 +31,7 @@ def main():
     parser = optparse.OptionParser(usage=__doc__.strip())
     parser.add_option('-r', dest='max_retries', default=1,
             help='maximum number of automatic retries (default: %default)')
+    parser.add_option('-o', dest='output')
     (options, args) = parser.parse_args()
 
     if len(args) != 1:
@@ -50,17 +51,17 @@ def main():
         else:
             raise Exception("Parsing error: failed to match regular expression '%s'" % regex)
 
-    rtmp_base = extract(r'streamer: "([^"]+)"')
+    rtmp_base = extract(r'netConnectionUrl = "([^"]+)"')
     assert rtmp_base.startswith('rtmp://')
     assert rtmp_base.endswith('/video')
 
-    rtmp_file = extract(r'file: "([^"]+)"')
-    assert rtmp_file.endswith('.flv')
-    rtmp_path = rtmp_file[:-4]
+    rtmp_file = extract(r'clip.url = "([^"]+)"')
+    assert rtmp_file.startswith('flv:')
+    rtmp_path = rtmp_file[4:]
     rtmp_url = rtmp_base + '/' + rtmp_file
     print 'Media URL: %s' % rtmp_url
 
-    filename = rtmp_file.split('/')[-1]
+    filename = options.output if options.output else rtmp_file.split('/')[-1]
     print 'Filename: %s' % filename
 
     retry_num = 0
